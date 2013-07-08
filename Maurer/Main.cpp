@@ -12,7 +12,7 @@ public:
 	vec_t data;
 
 	VecOb() :
-		data() {}
+		data(1, T()) {}
 
 	VecOb(vec_t::size_type maxWanted) :
 		data(maxWanted + 1, T()) {}
@@ -185,11 +185,11 @@ struct Maurer {
 	I varI;
 	F varF;
 
-	void ComputeFT(int d, vector<int> j) {
+	void ComputeFT(int d, const VecOb<int> &j) {
 		if (d == 1) {
-			assert(d + j.size() == varN.GetNumDims());
+			assert(d + j.size() == varN.dims.size());
 
-			for (int i1 = 1; i1 <= varN.At(1); i1++) {
+			for (int i1 = 1; i1 < varN.dims.OnePast(); i1++) {
 				VoxelRef w = VoxelRef::MakeMergingPrefix(i1, j);
 				VoxelRef u = VoxelRef::MakeUndef();
 				if (varI.At(w) == 1)
