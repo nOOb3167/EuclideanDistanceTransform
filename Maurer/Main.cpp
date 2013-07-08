@@ -8,6 +8,14 @@ using namespace std;
 namespace OneD {
 	const int dimRowImage = 5;
 
+	vector<int> MergePrefix(int i1, vector<int> j) {
+			vector<int> w;
+			w.push_back(i1);
+			for (auto &i : j) w.push_back(i);
+
+			return w;
+	}
+
 	/* [1, n_d] indexing */
 	struct VoxelRef {
 		bool undef;
@@ -44,6 +52,21 @@ namespace OneD {
 			w.SetFrom(vOther);
 			w.Set(dToSet, newI);
 			w.Check();
+			return w;
+		}
+
+		static VoxelRef MakeUndef() {
+			return VoxelRef();
+		}
+
+		static VoxelRef MakeMergingPrefix(int i1, vector<int> j) {
+			VoxelRef w;
+
+			vector<int> corVec = MergePrefix(i1, j);
+			assert(corVec.size() == 1);
+
+			w.Set(1, corVec[0]);
+
 			return w;
 		}
 	};
@@ -132,6 +155,8 @@ namespace OneD {
 			assert(d <= GetNumDims());
 			return dims.at(d);
 		}
+
+		int At(int d) { return GetDim(d); }
 	};
 };
 
@@ -141,6 +166,31 @@ struct Maurer {
 	N varN;
 	I varI;
 	F varF;
+
+	void ComputeFT(int d, vector<int> j) {
+		if (d == 1) {
+			assert(d + j.size() == varN.GetNumDims());
+
+			for (int i1 = 1; i1 <= varN.At(1); i1++) {
+				VoxelRef w = VoxelRef::MakeMergingPrefix(i1, j);
+				VoxelRef u = VoxelRef::MakeUndef();
+				if (varI.At(w) == 1)
+					varF.Set(w, w);
+				else
+					varF.Set(w, u);
+			}
+		} else {
+			for (int id = 1; id <= varN.At(d); id++)
+				ComputeFT(d - 1, MergePrefix(id, j));
+		}
+
+		/* FIXME: Boundary case. i1...id-1 where d == 1 */
+		int numNested;
+		if (d == 1) numNested = 1;
+		else        numNested = d - 1;
+
+		vector<int> tmpId(numNested, 1);
+	}
 };
 
 int main(int argc, char **argv) {
