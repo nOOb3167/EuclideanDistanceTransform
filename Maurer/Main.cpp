@@ -5,50 +5,83 @@
 
 using namespace std;
 
+template <typename T>
+class VecOb {
+public:
+	typedef vector<T> vec_t;
+	vec_t data;
+
+	VecOb() :
+		data() {}
+
+	VecOb(vec_t::size_type maxWanted) :
+		data(maxWanted + 1, T()) {}
+
+	VecOb(vec_t::size_type maxWanted, const T &a) :
+		data(maxWanted + 1, a) {}
+
+	vec_t::size_type OnePast() const {
+		return data.size() + 1;
+	}
+
+	T & operator[](size_t a) const {
+		assert(a >= 1);
+		assert(a < OnePast());
+		return data.at(a);
+	}
+
+	vec_t::size_type      size() const  { return OnePast() - 1; } /* Size of [x, y) is 'y-x'. Here: [1, OnePast) */
+	vec_t::const_iterator begin() const { return data.begin() ++; }
+	vec_t::const_iterator end() const   { return data.end(); }
+	void                  push_back(const T& val) { data.push_back(val); }
+};
+
 namespace OneD {
 	const int dimRowImage = 5;
 
-	vector<int> MergePrefix(int i1, vector<int> j) {
-			vector<int> w;
-			w.push_back(i1);
-			for (auto &i : j) w.push_back(i);
+	VecOb<int> MergePrefix(int i1, const VecOb<int> &j) {
+		VecOb<int> w;
 
-			return w;
+		w.push_back(i1);
+		for (auto &i : j) w.push_back(i);
+
+		return w;
 	}
 
 	/* [1, n_d] indexing */
 	struct VoxelRef {
 		bool undef;
-		int i;
-		VoxelRef() : undef(true), i(0) {}
+		VecOb<int> i;
+
+	private:
+		VoxelRef(int d) : undef(true), i(d, 0) {}
+
+	public:
 
 		void Check() {
 			if (undef) {
-				assert(i == 0);
+				for (auto &i : index) assert(i == 0);
 			} else {
-				assert(i >= 1);
-				assert(i <= 1);
+				for (auto &i : index) assert(i >= 1);
+				/* FIXME: Unknown upper bound: for (auto &i : index) assert(i <= ???); */
 			}
 		}
 
 		void SetFrom(const VoxelRef &v) {
+			assert(i.size() == v.i.size());
+
 			undef = v.undef;
-			Set(1, v.i);
+			for (size_t i = 1; i < v.i.OnePast(); i++)
+				Set(i, v.i[i]);
 		}
 
 		void Set(int d, int newI) {
-			i = newI;
+			i[d] = newI;
 			Check();
 		}
 
-		int GetNumDims() const { return 1; }
-
-		vector<int> GetCorVec() const {
-			return vector<int>(1, i);
-		}
-
 		static VoxelRef DOf(const VoxelRef &vOther, int dToSet, int newI) {
-			VoxelRef w;
+			VoxelRef w(vOther.i.size());
 			w.SetFrom(vOther);
 			w.Set(dToSet, newI);
 			w.Check();
@@ -56,107 +89,92 @@ namespace OneD {
 		}
 
 		static VoxelRef MakeUndef() {
-			return VoxelRef();
+			return VoxelRef(0);
 		}
 
-		static VoxelRef MakeMergingPrefix(int i1, vector<int> j) {
-			VoxelRef w;
+		static VoxelRef MakeMergingPrefix(int i1, const VecOb<int> &j) {
+			VoxelRef w(1 + j.size());
+			VecOb<int> corVec = MergePrefix(i1, j);
 
-			vector<int> corVec = MergePrefix(i1, j);
-			assert(corVec.size() == 1);
+			assert(w.i.size() == corVec.size());
 
-			w.Set(1, corVec[0]);
+			for (size_t i = 1; i < w.i.OnePast(); i++)
+				w.Set(i, corVec[i]);
 
 			return w;
 		}
 	};
 
 	struct F {
-		VoxelRef data[dimRowImage];
+		/* FIXME: Empty */
+	};
+
+	struct N {
+		VecOb<int> dims;
+		VecOb<int> accDims;
+
+		N(const VecOb<int> &dms) :
+			dims(dms)
+		{
+			assert(dms.size() >= 1);
+
+			VecOb<int> wAccDims(dms.size());
+			wAccDims[1] = 1;
+			for (int i = 2; i < wAccDims.OnePast(); i++) wAccDims[i] = wAccDims[i - 1] * wDims[i - i];
+
+			accDims = wAccDims;
+		}
+
+		int & operator[](const size_t i) { return dims[i]; }
 	};
 
 	/* dims: [1, n_d] */
 	struct I {
 		N dims;
-
 		vector<int> data;
 
-		I(const vector<int> dms) :
+		I(const VecOb<int> &dms) :
 			dims(dms)
 		{
+			/* Do the [0, OnePast) overallocation. '(OnePast aka ''dims[i] + 1'') - 0' */
 			vector<int> wData;
 			{
 				int total = 1;
-				for (int i = 1; i <= dims.GetNumDims(); i++) total *= dims.GetDim(i);
+				for (size_t i = 1; i < dims.dims.OnePast(); i++)
+					total *= (dims[i] + 1) - 0;
 				wData = vector<int>(total, 0);
 			}
 
-			data    = wData;
+			data = wData;
 		}
 
 		void Check() {
-			assert(dims.size() >= 1);
-			assert(dims.size() == accDims.size());
+			assert(dims.dims.size() == dims.accDims.size());
 		}
 
-		int GetAtRaw(vector<int> corVec) {
-			assert(GetNumDims() == corVec.size());
+		int GetAtRaw(const VecOb<int> &corVec) {
+			assert(dims.dims.size() == corVec.size());
 
 			int pos = 0;
-			for (int i = 0; i < corVec.size(); i++) {
-				pos += accDims[i] * (corVec[i] - 1);
-			}
+			for (int i = 1; i < corVec.OnePast(); i++)
+				pos += dims.accDims[i] * corVec[i];
 
 			return data.at(pos);
 		}
 
 		int At(const VoxelRef &v) {
-			return GetAtRaw(v.GetCorVec());
+			return GetAtRaw(v.i);
 		}
 
 		/* d: varying coordinate; r: rest */
 		vector<VoxelRef> GetRow(int d, const VoxelRef &r) {
 			vector<VoxelRef> vr;
 
-			for (int i = 1; i <= dims.GetDim(d); i++)
+			for (int i = 1; i <= dims[d]; i++)
 				vr.push_back(VoxelRef::DOf(r, d, i));
 
 			return vr;
 		}
-	};
-
-	struct N {
-		vector<int> dims;
-		vector<int> accDims;
-
-		N(const vector<int> dms)
-		{
-			assert(dms.size() >= 1);
-
-			vector<int> wDims(dms.size() + 1);
-			for (int i = 1; i < wDims.size(); i++) wDims[i] = dms[i - 1];
-
-			vector<int> wAccDims(dims.size());
-			{
-				vector<int> acd(dims.size() + 1);
-				acd[0] = 1;
-				for (int i = 1; i <= dims.size(); i++) acd[i] = acd[i - 1] * dims[i - i];
-				copy(acd.begin() + 1, acd.end(), back_inserter(wAccDims));
-			}
-
-			dims = wDims;
-			accDims = wAccDims;
-		}
-
-		int GetNumDims() const { return dims.size() - 1; }
-
-		int GetDim(int d) {
-			assert(d >= 1);
-			assert(d <= GetNumDims());
-			return dims.at(d);
-		}
-
-		int At(int d) { return GetDim(d); }
 	};
 };
 
