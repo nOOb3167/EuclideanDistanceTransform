@@ -53,49 +53,27 @@ namespace OneD {
 	};
 
 	/* dims: [1, n_d] */
-	struct IData {
-		vector<int> dims;
+	struct I {
+		N dims;
+
 		vector<int> data;
 
-		vector<int> accDims;
-
-		IData(const vector<int> dms)
+		I(const vector<int> dms) :
+			dims(dms)
 		{
-			assert(dims.size());
-
-			vector<int> wDims = dms;
-
 			vector<int> wData;
 			{
 				int total = 1;
-				for (int i = 0; i < dims.size(); i++) total *= dims[i];
+				for (int i = 1; i <= dims.GetNumDims(); i++) total *= dims.GetDim(i);
 				wData = vector<int>(total, 0);
 			}
 
-			vector<int> wAccDims(dims.size());
-			{
-				vector<int> acd(dims.size() + 1);
-				acd[0] = 1;
-				for (int i = 1; i <= dims.size(); i++) acd[i] = acd[i - 1] * dims[i - i];
-				copy(acd.begin() + 1, acd.end(), back_inserter(wAccDims));
-			}
-
-			dims    = wDims;
 			data    = wData;
-			accDims = wAccDims;
 		}
 
 		void Check() {
 			assert(dims.size() >= 1);
 			assert(dims.size() == accDims.size());
-		}
-
-		int GetNumDims() const { return dims.size(); }
-
-		int GetDim(int d) {
-			assert(d >= 1);
-			assert(d <= GetNumDims());
-			return dims.at(d - 1);
 		}
 
 		int GetAtRaw(vector<int> corVec) {
@@ -112,31 +90,57 @@ namespace OneD {
 		int At(const VoxelRef &v) {
 			return GetAtRaw(v.GetCorVec());
 		}
-	};
-
-	struct I {
-		IData data;
-
-		I(const vector<int> dms) : data(dms) {}
-
-		int GetNumDims() const { return data.GetNumDims(); }
-
-		int GetDim(int d) { return data.GetDim(d); }
 
 		/* d: varying coordinate; r: rest */
 		vector<VoxelRef> GetRow(int d, const VoxelRef &r) {
 			vector<VoxelRef> vr;
 
-			for (int i = 1; i <= GetDim(d); i++)
+			for (int i = 1; i <= dims.GetDim(d); i++)
 				vr.push_back(VoxelRef::DOf(r, d, i));
 
 			return vr;
 		}
 	};
 
-	struct SubImage {
-		SubImage(const I &img) {}
+	struct N {
+		vector<int> dims;
+		vector<int> accDims;
+
+		N(const vector<int> dms)
+		{
+			assert(dms.size() >= 1);
+
+			vector<int> wDims(dms.size() + 1);
+			for (int i = 1; i < wDims.size(); i++) wDims[i] = dms[i - 1];
+
+			vector<int> wAccDims(dims.size());
+			{
+				vector<int> acd(dims.size() + 1);
+				acd[0] = 1;
+				for (int i = 1; i <= dims.size(); i++) acd[i] = acd[i - 1] * dims[i - i];
+				copy(acd.begin() + 1, acd.end(), back_inserter(wAccDims));
+			}
+
+			dims = wDims;
+			accDims = wAccDims;
+		}
+
+		int GetNumDims() const { return dims.size() - 1; }
+
+		int GetDim(int d) {
+			assert(d >= 1);
+			assert(d <= GetNumDims());
+			return dims.at(d);
+		}
 	};
+};
+
+using namespace OneD;
+
+struct Maurer {
+	N varN;
+	I varI;
+	F varF;
 };
 
 int main(int argc, char **argv) {
