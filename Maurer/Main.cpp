@@ -60,9 +60,9 @@ namespace OneD {
 
 		void Check() {
 			if (undef) {
-				for (auto &i : index) assert(i == 0);
+				for (auto &w : i) assert(w == 0);
 			} else {
-				for (auto &i : index) assert(i >= 1);
+				for (auto &w : i) assert(w >= 1);
 				/* FIXME: Unknown upper bound: for (auto &i : index) assert(i <= ???); */
 			}
 		}
@@ -73,6 +73,8 @@ namespace OneD {
 			undef = v.undef;
 			for (size_t i = 1; i < v.i.OnePast(); i++)
 				Set(i, v.i[i]);
+
+			Check();
 		}
 
 		void Set(int d, int newI) {
@@ -93,15 +95,17 @@ namespace OneD {
 		}
 
 		static VoxelRef MakeMergingPrefix(int i1, const VecOb<int> &j) {
-			VoxelRef w(1 + j.size());
+			VoxelRef ret(1 + j.size());
 			VecOb<int> corVec = MergePrefix(i1, j);
 
-			assert(w.i.size() == corVec.size());
+			assert(ret.i.size() == corVec.size());
 
-			for (size_t i = 1; i < w.i.OnePast(); i++)
-				w.Set(i, corVec[i]);
+			for (size_t w = 1; w < w.i.OnePast(); w++)
+				ret.Set(w, corVec[w]);
 
-			return w;
+			ret.undef = false;
+
+			return ret;
 		}
 	};
 
