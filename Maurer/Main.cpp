@@ -3,6 +3,7 @@
 #include <iterator>
 #include <vector>
 #include <exception>
+#include <memory>
 
 using namespace std;
 
@@ -30,7 +31,7 @@ public:
 		data(maxWanted + 1, a) {}
 
 	typename vec_t::size_type OnePast() const {
-		return data.size() + 1;
+		return data.size();
 	}
 
 	const T & operator[](size_t a) const {
@@ -144,7 +145,8 @@ namespace OneD {
 
 			accDims = VecOb<int>(dms.size());
 			accDims[1] = 1;
-			for (size_t i = 2; i < accDims.OnePast(); i++) accDims[i] = accDims[i - 1] * dims[i - i];
+			for (size_t i = 2; i < accDims.OnePast(); i++)
+				accDims[i] = accDims[i - 1] * dims[i - 1];
 		}
 
 		int & operator[](const size_t i) { return dims[i]; }
@@ -160,7 +162,8 @@ namespace OneD {
 		{
 			/* Do the [0, OnePast) overallocation. '(OnePast aka ''dims[i] + 1'') - 0' */
 			int total = 1;
-			for (size_t i = 1; i < dims.dims.OnePast(); i++) total *= (dims[i] + 1) - 0;
+			for (size_t i = 1; i < dims.dims.OnePast(); i++)
+				total *= (dims[i] + 1) - 0;
 			data = vector<int>(total, 0);
 		}
 
@@ -259,6 +262,19 @@ struct Maurer {
 	I varI;
 	F varF;
 
+private:
+	Maurer(const VecOb<int> &dms) :
+		varN(dms),
+		varI(dms),
+		varF(dms) {}
+
+public:
+	static Maurer * MakeUniform(int d, int n) {
+		VecOb<int> dms;
+		for (int i = 1; i <= d; i++) dms.push_back(n);
+		return new Maurer(dms);
+	}
+
 	void VoronoiFT(int d, const VecOb<int> &i, const VecOb<int> &j) {
 		assert(0);
 	}
@@ -297,5 +313,6 @@ struct Maurer {
 };
 
 int main(int argc, char **argv) {
+	shared_ptr<Maurer> m(Maurer::MakeUniform(1, 5));
 	return EXIT_SUCCESS;
 }
