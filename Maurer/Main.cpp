@@ -63,6 +63,15 @@ namespace OneD {
 		return w;
 	}
 
+	VecOb<int> CutSuffix(int d, const VecOb<int> &j) {
+		VecOb<int> w;
+
+		for (size_t i = d; i < j.OnePast(); i++)
+			w.push_back(j[i]);
+
+		return w;
+	}
+
 	/* [1, n_d] indexing */
 	struct VoxelRef {
 		bool undef;
@@ -282,7 +291,7 @@ struct Maurer {
 		VecOb<int> count = VecCount::MakeInitial(limits);
 
 		do {
-			VoronoiFT(d, count, j); /* FIXME: Pass the correct 'j' */
+			VoronoiFT(d, count, CutSuffix(d + 1, j)); /* FIXME: Pass the correct 'j' */
 		} while (!VecCount::Inc(limits, &count));
 	}
 };
