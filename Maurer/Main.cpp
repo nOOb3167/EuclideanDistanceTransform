@@ -12,31 +12,43 @@ template <typename T>
 class VecOb {
 public:
 	typedef vector<T> vec_t;
+	typedef typename vec_t::const_reference const_reference;
+	typedef typename vec_t::value_type value_type;
+	typedef typename vec_t::difference_type difference_type;
+	typedef typename vec_t::pointer pointer;
+	typedef typename vec_t::reference reference;
+	typedef typename vec_t::iterator::iterator_category iterator_category;
 	vec_t data;
 
 	VecOb() :
 		data(1, T()) {}
 
-	VecOb(vec_t::size_type maxWanted) :
+	VecOb(typename vec_t::size_type maxWanted) :
 		data(maxWanted + 1, T()) {}
 
-	VecOb(vec_t::size_type maxWanted, const T &a) :
+	VecOb(typename vec_t::size_type maxWanted, const T &a) :
 		data(maxWanted + 1, a) {}
 
-	vec_t::size_type OnePast() const {
+	typename vec_t::size_type OnePast() const {
 		return data.size() + 1;
 	}
 
-	T & operator[](size_t a) const {
+	const T & operator[](size_t a) const {
 		assert(a >= 1);
 		assert(a < OnePast());
 		return data.at(a);
 	}
 
-	vec_t::size_type      size() const  { return OnePast() - 1; } /* Size of [x, y) is 'y-x'. Here: [1, OnePast) */
-	vec_t::const_iterator begin() const { return data.begin() ++; }
-	vec_t::const_iterator end() const   { return data.end(); }
-	void                  push_back(const T& val) { data.push_back(val); }
+	T & operator[](size_t a) {
+		assert(a >= 1);
+		assert(a < OnePast());
+		return data.at(a);
+	}
+
+	typename vec_t::size_type      size() const  { return OnePast() - 1; } /* Size of [x, y) is 'y-x'. Here: [1, OnePast) */
+	typename vec_t::const_iterator begin() const { return data.begin() ++; }
+	typename vec_t::const_iterator end() const { return data.end(); }
+	void                           push_back(const T& val) { data.push_back(val); }
 };
 
 namespace OneD {
@@ -103,17 +115,13 @@ namespace OneD {
 
 			assert(ret.i.size() == corVec.size());
 
-			for (size_t w = 1; w < w.i.OnePast(); w++)
+			for (size_t w = 1; w < corVec.OnePast(); w++)
 				ret.Set(w, corVec[w]);
 
 			ret.undef = false;
 
 			return ret;
 		}
-	};
-
-	struct F {
-		/* FIXME: Empty */
 	};
 
 	struct N {
@@ -125,11 +133,9 @@ namespace OneD {
 		{
 			assert(dms.size() >= 1);
 
-			VecOb<int> wAccDims(dms.size());
-			wAccDims[1] = 1;
-			for (int i = 2; i < wAccDims.OnePast(); i++) wAccDims[i] = wAccDims[i - 1] * wDims[i - i];
-
-			accDims = wAccDims;
+			accDims = VecOb<int>(dms.size());
+			accDims[1] = 1;
+			for (size_t i = 2; i < accDims.OnePast(); i++) accDims[i] = accDims[i - 1] * dims[i - i];
 		}
 
 		int & operator[](const size_t i) { return dims[i]; }
@@ -144,15 +150,9 @@ namespace OneD {
 			dims(dms)
 		{
 			/* Do the [0, OnePast) overallocation. '(OnePast aka ''dims[i] + 1'') - 0' */
-			vector<int> wData;
-			{
-				int total = 1;
-				for (size_t i = 1; i < dims.dims.OnePast(); i++)
-					total *= (dims[i] + 1) - 0;
-				wData = vector<int>(total, 0);
-			}
-
-			data = wData;
+			int total = 1;
+			for (size_t i = 1; i < dims.dims.OnePast(); i++) total *= (dims[i] + 1) - 0;
+			data = vector<int>(total, 0);
 		}
 
 		void Check() {
@@ -163,7 +163,7 @@ namespace OneD {
 			assert(dims.dims.size() == corVec.size());
 
 			int pos = 0;
-			for (int i = 1; i < corVec.OnePast(); i++)
+			for (size_t i = 1; i < corVec.OnePast(); i++)
 				pos += dims.accDims[i] * corVec[i];
 
 			return data.at(pos);
@@ -181,6 +181,33 @@ namespace OneD {
 				vr.push_back(VoxelRef::DOf(r, d, i));
 
 			return vr;
+		}
+	};
+
+	struct F {
+		N dims;
+		vector<VoxelRef> data;
+
+		F(const VecOb<int> &dms) :
+			dims(dms)
+		{
+			int total = 1;
+			for (size_t i = 1; i < dims.dims.OnePast(); i++) total *= (dims[i] + 1) - 0;
+			data = vector<VoxelRef>(total, VoxelRef::MakeUndef());
+		}
+
+		size_t GetIdxOf(const VoxelRef &at) const {
+			assert(dims.dims.size() == at.i.size());
+
+			int pos = 0;
+			for (size_t i = 1; i < at.i.OnePast(); i++)
+				pos += dims.accDims[i] * at.i[i];
+
+			return pos;
+		}
+
+		void Set(const VoxelRef &at, const VoxelRef &to) {
+			data.at(GetIdxOf(at)) = to;
 		}
 	};
 
@@ -205,7 +232,7 @@ namespace OneD {
 		bool Inc(const VecOb<int> &limits, VecOb<int> *vInOut) {
 			assert(limits.size() == vInOut->size());
 			bool isOverflow = false;
-			try { Inc_(1, limits, vInOut); } catch (OverflowExc &e) { isOverflow = true; }
+			try { Inc_(1, limits, vInOut); } catch (const OverflowExc &) { isOverflow = true; }
 			return isOverflow;
 		}
 
@@ -231,7 +258,7 @@ struct Maurer {
 		if (d == 1) {
 			assert(d + j.size() == varN.dims.size());
 
-			for (size_t i1 = 1; i1 <= varN.dims[1]; i1++) {
+			for (int i1 = 1; i1 <= varN.dims[1]; i1++) {
 				VoxelRef w = VoxelRef::MakeMergingPrefix(i1, j);
 				VoxelRef u = VoxelRef::MakeUndef();
 				if (varI.At(w) == 1)
@@ -240,21 +267,22 @@ struct Maurer {
 					varF.Set(w, u);
 			}
 		} else {
-			for (size_t id = 1; id <= varN.dims[d]; id++)
+			for (int id = 1; id <= varN.dims[d]; id++)
 				ComputeFT(d - 1, MergePrefix(id, j));
 		}
 
 		/* FIXME: Boundary case. i1...id-1 where d == 1
 		Not sure what the intention is for d == 1.
-		After the initial part computes F_(d-1), the routine should compute F_d. */
+		After the initial part computes F_(d-1), the routine should compute F_d.
+		Maybe VoronoiFT can be dummy-called (Empty 'i' part). */
 		const int lastNested = d - 1;
 		VecOb<int> limits;
-		copy_n(varN.dims, lastNested, back_inserter(limits));
+		copy_n(varN.dims.begin(), lastNested, back_inserter(limits));
 
 		VecOb<int> count = VecCount::MakeInitial(limits);
 
 		do {
-			VoronoiFT();
+			VoronoiFT(d, count, j); /* FIXME: Pass the correct 'j' */
 		} while (!VecCount::Inc(limits, &count));
 	}
 };
