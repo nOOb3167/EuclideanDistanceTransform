@@ -47,7 +47,7 @@ public:
 	}
 
 	typename vec_t::size_type      size() const  { return OnePast() - 1; } /* Size of [x, y) is 'y-x'. Here: [1, OnePast) */
-	typename vec_t::const_iterator begin() const { return data.begin() ++; }
+	typename vec_t::const_iterator begin() const { return ++data.begin(); }
 	typename vec_t::const_iterator end() const { return data.end(); }
 	void                           push_back(const T& val) { data.push_back(val); }
 };
@@ -59,7 +59,8 @@ namespace OneD {
 		VecOb<int> w;
 
 		w.push_back(i1);
-		for (auto &i : j) w.push_back(i);
+		for (auto &i : j)
+			w.push_back(i);
 
 		return w;
 	}
@@ -125,10 +126,10 @@ namespace OneD {
 
 			assert(ret.i.size() == corVec.size());
 
+			ret.undef = false;
+
 			for (size_t w = 1; w < corVec.OnePast(); w++)
 				ret.Set(w, corVec[w]);
-
-			ret.undef = false;
 
 			return ret;
 		}
@@ -310,9 +311,14 @@ public:
 			VoronoiFT(d, count, CutSuffix(d + 1, j)); /* FIXME: Pass the correct 'j' */
 		} while (!VecCount::Inc(limits, &count));
 	}
+
+	void Start() {
+		ComputeFT(varN.dims.size(), VecOb<int>(0));
+	}
 };
 
 int main(int argc, char **argv) {
 	shared_ptr<Maurer> m(Maurer::MakeUniform(1, 5));
+	m->Start();
 	return EXIT_SUCCESS;
 }
