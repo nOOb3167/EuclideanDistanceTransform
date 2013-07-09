@@ -2,8 +2,11 @@
 #include <cassert>
 #include <iterator>
 #include <vector>
+#include <exception>
 
 using namespace std;
+
+class OverflowExc : public ::std::exception {};
 
 template <typename T>
 class VecOb {
@@ -180,6 +183,37 @@ namespace OneD {
 			return vr;
 		}
 	};
+
+	namespace VecCount {
+
+		void ReinitLower(int d, VecOb<int> *vInOut) {
+			for (size_t i = d - 1; i >= 1; i--)
+				(*vInOut)[i] = 1;
+		}
+
+		void Inc_(int d, const VecOb<int> &limits, VecOb<int> *vInOut) {
+			if (d == vInOut->OnePast())
+				throw OverflowExc();
+
+			(*vInOut)[d] += 1;
+			if ((*vInOut)[d] > limits[d])
+				Inc_(d + 1, limits, vInOut);
+			else
+				ReinitLower(d, vInOut);
+		}
+
+		bool Inc(const VecOb<int> &limits, VecOb<int> *vInOut) {
+			assert(limits.size() == vInOut->size());
+			bool isOverflow = false;
+			try { Inc_(1, limits, vInOut); } catch (OverflowExc &e) { isOverflow = true; }
+			return isOverflow;
+		}
+
+		VecOb<int> MakeInitial(const VecOb<int> &limits) {
+			return VecOb<int>(limits.size(), 1);
+		}
+
+	};
 };
 
 using namespace OneD;
@@ -189,11 +223,15 @@ struct Maurer {
 	I varI;
 	F varF;
 
+	void VoronoiFT(int d, const VecOb<int> &i, const VecOb<int> &j) {
+		assert(0);
+	}
+
 	void ComputeFT(int d, const VecOb<int> &j) {
 		if (d == 1) {
 			assert(d + j.size() == varN.dims.size());
 
-			for (int i1 = 1; i1 < varN.dims.OnePast(); i1++) {
+			for (size_t i1 = 1; i1 <= varN.dims[1]; i1++) {
 				VoxelRef w = VoxelRef::MakeMergingPrefix(i1, j);
 				VoxelRef u = VoxelRef::MakeUndef();
 				if (varI.At(w) == 1)
@@ -202,16 +240,22 @@ struct Maurer {
 					varF.Set(w, u);
 			}
 		} else {
-			for (int id = 1; id <= varN.At(d); id++)
+			for (size_t id = 1; id <= varN.dims[d]; id++)
 				ComputeFT(d - 1, MergePrefix(id, j));
 		}
 
-		/* FIXME: Boundary case. i1...id-1 where d == 1 */
-		int numNested;
-		if (d == 1) numNested = 1;
-		else        numNested = d - 1;
+		/* FIXME: Boundary case. i1...id-1 where d == 1
+		Not sure what the intention is for d == 1.
+		After the initial part computes F_(d-1), the routine should compute F_d. */
+		const int lastNested = d - 1;
+		VecOb<int> limits;
+		copy_n(varN.dims, lastNested, back_inserter(limits));
 
-		vector<int> tmpId(numNested, 1);
+		VecOb<int> count = VecCount::MakeInitial(limits);
+
+		do {
+			VoronoiFT();
+		} while (!VecCount::Inc(limits, &count));
 	}
 };
 
