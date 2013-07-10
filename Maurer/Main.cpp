@@ -65,6 +65,18 @@ namespace OneD {
 		return w;
 	}
 
+	VecOb<int> PasteInfix(const VecOb<int> &pre, int at, const VecOb<int> &post) {
+		VecOb<int> w;
+
+		for (auto &i : pre)
+			w.push_back(i);
+		w.push_back(at);
+		for (auto &i : post)
+			w.push_back(i);
+
+		return w;
+	}
+
 	VecOb<int> CutSuffix(int d, const VecOb<int> &j) {
 		VecOb<int> w;
 
@@ -130,6 +142,17 @@ namespace OneD {
 
 			for (size_t w = 1; w < corVec.OnePast(); w++)
 				ret.Set(w, corVec[w]);
+
+			return ret;
+		}
+
+		static VoxelRef MakeFromVec(const VecOb<int> &v) {
+			VoxelRef ret(v.size());
+
+			ret.undef = false;
+
+			for (size_t w = 1; w < v.OnePast(); w++)
+				ret.Set(w, v[w]);
 
 			return ret;
 		}
@@ -222,6 +245,10 @@ namespace OneD {
 		void Set(const VoxelRef &at, const VoxelRef &to) {
 			data.at(GetIdxOf(at)) = to;
 		}
+
+		VoxelRef & operator[](const VoxelRef &a) {
+			return data.at(GetIdxOf(a));
+		}
 	};
 
 	namespace VecCount {
@@ -276,8 +303,47 @@ public:
 		return new Maurer(dms);
 	}
 
-	void VoronoiFT(int d, const VecOb<int> &i, const VecOb<int> &j) {
+	int EucDist(const VoxelRef &a, const VoxelRef &b) {
 		assert(0);
+		return 0;
+	}
+
+	bool RemoveFT(const VoxelRef &glm1, const VoxelRef &gl, const VoxelRef &fi, void *RowD) {
+		assert(0);
+		return false;
+	}
+
+	void VoronoiFT(int d, const VecOb<int> &is, const VecOb<int> &js) {
+		int l = 0;
+		VecOb<VoxelRef> gs(varN.dims[d], VoxelRef::MakeUndef());
+
+		for (int i = 1; i <= varN.dims[d]; i++) {
+			VoxelRef xi = VoxelRef::MakeFromVec(PasteInfix(is, i, js));
+			VoxelRef fi = varF[xi];
+
+			if (! fi.undef) {
+				if (l < 2) {
+					gs[++l] = fi;
+				} else {
+					while (l >= 2 && RemoveFT(gs[l - 1], gs[l], fi, nullptr))
+						--l;
+					gs[++l] = fi;
+				}
+			}
+		}
+
+		int ns = l;
+		l = 1;
+
+		if (ns == 0)
+			return;
+
+		for (int i = 1; i <= varN.dims[d]; i++) {
+			VoxelRef xi = VoxelRef::MakeFromVec(PasteInfix(is, i, js));
+			while (l < ns && EucDist(xi, gs[l]) > EucDist(xi, gs[l + 1]))
+				++l;
+			varF[xi] = gs[l];
+		}
 	}
 
 	void ComputeFT(int d, const VecOb<int> &j) {
@@ -288,9 +354,9 @@ public:
 				VoxelRef w = VoxelRef::MakeMergingPrefix(i1, j);
 				VoxelRef u = VoxelRef::MakeUndef();
 				if (varI.At(w) == 1)
-					varF.Set(w, w);
+					varF[w] = w;
 				else
-					varF.Set(w, u);
+					varF[w] = u;
 			}
 		} else {
 			for (int id = 1; id <= varN.dims[d]; id++)
