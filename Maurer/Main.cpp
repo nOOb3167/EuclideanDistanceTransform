@@ -303,14 +303,28 @@ public:
 		return new Maurer(dms);
 	}
 
+	/* FIXME: Not Dist Squared */
 	int EucDist(const VoxelRef &a, const VoxelRef &b) {
-		assert(0);
-		return 0;
+		assert(a.i.size() == b.i.size());
+		int sum = 0;
+		for (size_t i = 1; i < a.i.OnePast(); i++)
+			sum += (a.i[i] - b.i[i]) * (a.i[i] - b.i[i]);
+		return sum;
 	}
 
-	bool RemoveFT(const VoxelRef &glm1, const VoxelRef &gl, const VoxelRef &fi, void *RowD) {
-		assert(0);
-		return false;
+	int URdSq(const VoxelRef &u, const VoxelRef &Rd, int d) {
+		assert(u.i.size() == Rd.i.size());
+		int sum = 0;
+		for (size_t i = 1; i < u.i.OnePast() && i != d; i++)
+			sum += (u.i[i] - Rd.i[i]) * (u.i[i] - Rd.i[i]);
+		return sum;
+	}
+
+	bool RemoveFT(const VoxelRef &u, const VoxelRef &v, const VoxelRef &w, const VoxelRef &Rd, int d) {
+		int a = v.i[d] - u.i[d];
+		int b = w.i[d] - v.i[d];
+		int c = a + b;
+		return (c * URdSq(v, Rd, d) - b * URdSq(u, Rd, d) - a * URdSq(w, Rd, d) - a * b * c) > 0;
 	}
 
 	void VoronoiFT(int d, const VecOb<int> &is, const VecOb<int> &js) {
@@ -325,7 +339,7 @@ public:
 				if (l < 2) {
 					gs[++l] = fi;
 				} else {
-					while (l >= 2 && RemoveFT(gs[l - 1], gs[l], fi, nullptr))
+					while (l >= 2 && RemoveFT(gs[l - 1], gs[l], fi, xi, d))
 						--l;
 					gs[++l] = fi;
 				}
