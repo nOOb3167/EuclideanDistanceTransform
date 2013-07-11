@@ -53,7 +53,6 @@ public:
 };
 
 namespace OneD {
-	const int dimRowImage = 5;
 
 	VecOb<int> MergePrefix(int i1, const VecOb<int> &j) {
 		VecOb<int> w;
@@ -117,7 +116,6 @@ namespace OneD {
 
 		void Set(int d, int newI) {
 			i[d] = newI;
-			Check();
 		}
 
 		static VoxelRef DOf(const VoxelRef &vOther, int dToSet, int newI) {
@@ -155,6 +153,14 @@ namespace OneD {
 				ret.Set(w, v[w]);
 
 			return ret;
+		}
+
+		static bool Eq(const VoxelRef &a, const VoxelRef &b) {
+			assert(a.i.size() == b.i.size());
+			for (size_t i = 1; i < a.i.OnePast(); i++)
+				if (a.i[i] != b.i[i])
+					return false;
+			return true;
 		}
 	};
 
@@ -195,7 +201,7 @@ namespace OneD {
 			assert(dims.dims.size() == dims.accDims.size());
 		}
 
-		int GetAtRaw(const VecOb<int> &corVec) {
+		int & GetAtRaw(const VecOb<int> &corVec) {
 			assert(dims.dims.size() == corVec.size());
 
 			int pos = 0;
@@ -206,6 +212,10 @@ namespace OneD {
 		}
 
 		int At(const VoxelRef &v) {
+			return GetAtRaw(v.i);
+		}
+
+		int & operator[](const VoxelRef &v) {
 			return GetAtRaw(v.i);
 		}
 
@@ -281,9 +291,137 @@ namespace OneD {
 		}
 
 	};
+
+	int ChrInt(char c) {
+		switch (c) {
+		case '0':
+			return 0;
+		case '1':
+			return 1;
+		default:
+			assert(0);
+		}
+
+		return 0xFFFF;
+	}
 };
 
 using namespace OneD;
+
+namespace Parse {
+
+	typedef VecOb<VecOb<VoxelRef> > rows_t;
+	typedef VecOb<VoxelRef> row_t;
+
+	enum CToken {
+		TLINE = 0,
+		TELT,
+		TEND,
+	};
+
+	struct D {
+		string &s;
+		size_t p;
+
+		D(string &s) : s(s), p(0) {}
+
+		bool Eof() {
+			return p >= s.size();
+		}
+
+		int GetChar() {
+			assert(!Eof());
+			return s[p++];
+		}
+
+		void ExChar(char c) {
+			int w = GetChar();
+			assert(w == c);
+		}
+
+		CToken CToken() {
+			switch (GetChar()) {
+			case ';':
+				return TLINE;
+			case '|':
+				return TELT;
+			default:
+				assert(0);
+			};
+
+			return TEND;
+		}
+
+		void Unget() {
+			assert(p > 0);
+			p--;
+		}
+
+		int ExNum() {
+			assert(!Eof());
+
+			const char *c = s.c_str() + p;
+			char *end = NULL;
+
+			long int li = strtol(c, &end, 10);
+
+			if (end == c)
+				assert(0);
+
+			p += end - c;
+
+			return li;
+		}
+
+		bool TryNum() {
+			assert(!Eof());
+
+			const char *c = s.c_str() + p;
+			char *end = NULL;
+
+			long int li = strtol(c, &end, 10);
+
+			if (end == c)
+				return false;
+			else
+				return true;
+		}
+
+		int ExElt() {
+			return ExNum();
+		}
+	};
+
+	VecOb<VecOb<VoxelRef> > ParseRows(const string &s) {
+		VecOb<VecOb<VoxelRef> > vvLines(0, VecOb<VoxelRef>(0, VoxelRef::MakeUndef()));
+
+		string e(s);
+		D d(e);
+
+		CToken tok;
+		while (!d.Eof() && (tok = d.CToken()) == TLINE) {
+			VecOb<VoxelRef> vLine(0, VoxelRef::MakeUndef());
+
+			while (!d.Eof() && d.CToken() == TELT) {
+				VecOb<int> iElt;
+
+				while (!d.Eof() && d.TryNum())
+					iElt.push_back(d.ExElt());
+
+				vLine.push_back(VoxelRef::MakeFromVec(iElt));
+			}
+
+			if (!d.Eof())
+				d.Unget();
+
+			vvLines.push_back(vLine);
+		}
+
+		return vvLines;
+	}
+
+};
+
 
 struct Maurer {
 	N varN;
@@ -303,8 +441,28 @@ public:
 		return new Maurer(dms);
 	}
 
+	static Maurer * Make1DStr(const string &s) {
+		VecOb<int> dms(1, s.size());
+		Maurer *m = new Maurer(dms);
+		for (int i = 1; i <= m->varN[1]; i++)
+			m->varI[VoxelRef::MakeFromVec(VecOb<int>(1, i))] = ChrInt(s[i - 1]);
+		return m;
+	}
+
+	bool Check1D(Parse::row_t row) {
+		assert(varN.dims.size() == 1);
+		assert(varN[1] == row.size());
+		for (int i = 1; i <= varN[1]; i++)
+			assert(
+			VoxelRef::Eq(
+			varF[VoxelRef::MakeFromVec(VecOb<int>(1, i))], 
+			row[i]));
+
+		return true;
+	}
+
 	/* FIXME: Not Dist Squared */
-	int EucDist(const VoxelRef &a, const VoxelRef &b) {
+	int EucDist(const VoxelRef &a, const VoxelRef &b) const {
 		assert(a.i.size() == b.i.size());
 		int sum = 0;
 		for (size_t i = 1; i < a.i.OnePast(); i++)
@@ -312,7 +470,7 @@ public:
 		return sum;
 	}
 
-	int URdSq(const VoxelRef &u, const VoxelRef &Rd, int d) {
+	int URdSq(const VoxelRef &u, const VoxelRef &Rd, int d) const {
 		assert(u.i.size() == Rd.i.size());
 		int sum = 0;
 		for (size_t i = 1; i < u.i.OnePast() && i != d; i++)
@@ -397,8 +555,15 @@ public:
 	}
 };
 
-int main(int argc, char **argv) {
-	shared_ptr<Maurer> m(Maurer::MakeUniform(1, 5));
+void T1DStr() {
+	shared_ptr<Maurer> m(Maurer::Make1DStr("10010"));
 	m->Start();
+	Parse::rows_t rows = Parse::ParseRows(";|1|1|4|4|4");
+	assert(rows.size() == 1);
+	m->Check1D(rows[1]);
+}
+
+int main(int argc, char **argv) {
+	T1DStr();
 	return EXIT_SUCCESS;
 }
