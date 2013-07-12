@@ -228,11 +228,21 @@ namespace OneD {
 		}
 
 		const int & operator[](const VoxelRef &v) const {
+			assert(!v.undef);
 			return data.at(GetIdxOf(v.i));
 		}
 
 		int & operator[](const VoxelRef &v) {
+			assert(!v.undef);
 			return data.at(GetIdxOf(v.i));
+		}
+
+		const int & operator[](const VecOb<int> &v) const {
+			return data.at(GetIdxOf(v));
+		}
+
+		int & operator[](const VecOb<int> &v) {
+			return data.at(GetIdxOf(v));
 		}
 
 		/* d: varying coordinate; r: rest */
@@ -457,6 +467,19 @@ namespace Parse {
 			}
 	}
 
+	void CheckUniformDims(const rows_t &vvLines) {
+		size_t numL = vvLines.size();
+
+		for (auto &i : vvLines)
+			assert(i.size() == numL);
+	}
+
+	void CheckInnerSize(const rows_t &vvLines, int is) {
+		for (auto &i : vvLines)
+			for (auto &j : i)
+				assert(j.size() == is);
+	}
+
 	row_t ParseRow(D *d) {
 		row_t vLine;
 
@@ -503,6 +526,18 @@ namespace Parse {
 
 		return vvLines;
 	}
+
+	VecOb<int> GetRowsDims(const rows_t &vvLines) {
+		VecOb<int> w;
+
+		assert(vvLines.size());
+		CheckUniformDims(vvLines);
+
+		w.push_back(vvLines.size());
+		w.push_back(vvLines[1].size());
+
+		return w;
+	}
 };
 
 
@@ -543,6 +578,23 @@ public:
 			row[i]));
 
 		return true;
+	}
+
+	static Maurer * Make2DStr(const string &s) {
+		Parse::rows_t rows = Parse::GetRows(s);
+		Parse::CheckInnerSize(rows, 1);
+
+		Maurer *m = new Maurer(Parse::GetRowsDims(rows));
+
+		assert(m->varN.dims.size() == 2);
+
+		for (int i = 1; i <= m->varN[1]; i++)
+			for (int j = 1; j <= m->varN[2]; j++) {
+				VecOb<int> w; w.push_back(i); w.push_back(j);
+				m->varI[w] = rows[i][j][1];
+			}
+
+		return m;
 	}
 
 	/* FIXME: Not Dist Squared */
@@ -647,7 +699,13 @@ void T1DStr() {
 	m->Check1D(rows[1]);
 }
 
+void T2DStr() {
+	shared_ptr<Maurer> m(Maurer::Make2DStr("; ,0 ,0 ,0 ; ,0 ,0 ,0 ; ,0 ,0 ,0"));
+	m->Start();
+}
+
 int main(int argc, char **argv) {
 	T1DStr();
+	T2DStr();
 	return EXIT_SUCCESS;
 }
