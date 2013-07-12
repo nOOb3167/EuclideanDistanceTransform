@@ -331,8 +331,11 @@ using namespace OneD;
 
 namespace Parse {
 
-	typedef VecOb<VecOb<VoxelRef> > rows_t;
-	typedef VecOb<VoxelRef> row_t;
+	typedef VecOb<VecOb<VoxelRef> > vrows_t;
+	typedef VecOb<VoxelRef> vrow_t;
+
+	typedef VecOb<VecOb<VecOb<int> > > rows_t;
+	typedef VecOb<VecOb<int> > row_t;
 
 	enum CToken {
 		TLINE = 0,
@@ -374,7 +377,7 @@ namespace Parse {
 			switch (GetChar()) {
 			case ';':
 				return TLINE;
-			case '|':
+			case ',':
 				return TELT;
 			default:
 				assert(0);
@@ -425,37 +428,72 @@ namespace Parse {
 		}
 	};
 
-	VecOb<VecOb<VoxelRef> > ParseRows(const string &s) {
-		VecOb<VecOb<VoxelRef> > vvLines(0, VecOb<VoxelRef>(0, VoxelRef::MakeUndef()));
+	void CheckSameSize(const row_t &vLine) {
+		size_t *t = nullptr;
 
-		string e(s);
-		D d(e);
+		for (auto &i : vLine)
+			if (!t) *t = i.size();
+			else    assert(*t == i.size());
+	}
 
-		d.OptSkipWs();
+	void CheckSameSizes(const rows_t &vvLines) {
+		size_t *t = nullptr;
 
-		while (!d.Eof() && d.CToken() == TLINE) {
-			VecOb<VoxelRef> vLine(0, VoxelRef::MakeUndef());
+		size_t tmp;
 
-			d.OptSkipWs();
-
-			while (!d.Eof() && d.CToken() == TELT) {
-				VecOb<int> iElt;
-
-				while (!d.Eof() && d.TryNum())
-					iElt.push_back(d.ExElt());
-
-				vLine.push_back(VoxelRef::MakeFromVec(iElt));
+		for (auto &i : vvLines)
+			for (auto &j : i) {
+				if (!t) *(t = &tmp) = j.size();
+				assert(*t == j.size());
 			}
+	}
 
-			if (!d.Eof())
-				d.Unget();
+	row_t ParseRow(D *d) {
+		row_t vLine;
 
-			vvLines.push_back(vLine);
+		d->OptSkipWs();
+
+		while (!d->Eof() && d->CToken() == TELT) {
+			VecOb<int> iElt;
+
+			while (!d->Eof() && d->TryNum())
+				iElt.push_back(d->ExElt());
+
+			vLine.push_back(iElt);
 		}
+
+		if (!d->Eof())
+			d->Unget();
+
+		return vLine;
+	}
+
+	rows_t ParseRows(D *d) {
+		rows_t vvLines;
+
+		d->OptSkipWs();
+
+		while (!d->Eof() && d->CToken() == TLINE) {
+			vvLines.push_back(ParseRow(d));
+		}
+
+		if (!d->Eof())
+			d->Unget();
 
 		return vvLines;
 	}
 
+	rows_t GetRows(const string &s) {
+		string e(s);
+		D d(e);
+
+		rows_t vvLines = ParseRows(&d);
+
+		assert(d.Eof());
+		CheckSameSizes(vvLines);
+
+		return vvLines;
+	}
 };
 
 
@@ -594,7 +632,7 @@ public:
 void T1DStr() {
 	shared_ptr<Maurer> m(Maurer::Make1DStr("10010"));
 	m->Start();
-	Parse::rows_t rows = Parse::ParseRows(";|1|1|4|4|4");
+	Parse::rows_t rows = Parse::GetRows(";,1,1,4,4,4");
 	assert(rows.size() == 1);
 	m->Check1D(rows[1]);
 }
