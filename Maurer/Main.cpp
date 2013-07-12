@@ -150,27 +150,28 @@ namespace OneD {
 			return VoxelRef::MakeFromVec(MergePrefix(i1, j));
 		}
 
-		static bool Eq(const VoxelRef &a, const VoxelRef &b) {
-			assert(a.i.size() == b.i.size());
+		static bool Eq(const VecOb<int> &a, const VecOb<int> &b) {
+			assert(a.size() == b.size());
 
-			for (size_t i = 1; i < a.i.OnePast(); i++)
-				if (a.i[i] != b.i[i])
+			for (size_t i = 1; i < a.OnePast(); i++)
+				if (a[i] != b[i])
 					return false;
 
 			return true;
+		}
+
+		static bool Eq(const VoxelRef &a, const VoxelRef &b) {
+			if (! ((a.undef && b.undef) || (!a.undef && !b.undef)))
+				return false;
+
+			return Eq(a.i, b.i);
 		}
 
 		static bool Eq(const VoxelRef &a, const VecOb<int> &b) {
 			if (a.undef)
 				return false;
 
-			assert(a.i.size() == b.size());
-
-			for (size_t i = 1; i < a.i.OnePast(); i++)
-				if (a.i[i] != b[i])
-					return false;
-
-			return true;
+			return Eq(a.i, b);
 		}
 	};
 
@@ -269,6 +270,14 @@ namespace OneD {
 
 		VoxelRef & operator[](const VoxelRef &a) {
 			return data.at(GetIdxOf(a));
+		}
+
+		const VoxelRef & operator[](const VecOb<int> &a) const {
+			return data.at(GetIdxOf(VoxelRef::MakeFromVec(a)));
+		}
+
+		VoxelRef & operator[](const VecOb<int> &a) {
+			return data.at(GetIdxOf(VoxelRef::MakeFromVec(a)));
 		}
 	};
 
@@ -526,10 +535,11 @@ public:
 	bool Check1D(Parse::row_t row) {
 		assert(varN.dims.size() == 1);
 		assert(varN[1] == row.size());
+
 		for (int i = 1; i <= varN[1]; i++)
 			assert(
 			VoxelRef::Eq(
-			varF[VoxelRef::MakeFromVec(VecOb<int>(1, i))], 
+			varF[VecOb<int>(1, i)],
 			row[i]));
 
 		return true;
