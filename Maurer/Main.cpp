@@ -13,12 +13,14 @@ template <typename T>
 class VecOb {
 public:
 	typedef vector<T> vec_t;
-	typedef typename vec_t::const_reference const_reference;
 	typedef typename vec_t::value_type value_type;
-	typedef typename vec_t::difference_type difference_type;
-	typedef typename vec_t::pointer pointer;
 	typedef typename vec_t::reference reference;
-	typedef typename vec_t::iterator::iterator_category iterator_category;
+	typedef typename vec_t::const_reference const_reference;
+	typedef typename vec_t::iterator iterator;
+	typedef typename vec_t::const_iterator const_iterator;
+	typedef typename vec_t::difference_type difference_type;
+	typedef typename vec_t::size_type size_type;
+	typedef typename vec_t::pointer pointer;
 	vec_t data;
 
 	VecOb() :
@@ -29,6 +31,13 @@ public:
 
 	VecOb(typename vec_t::size_type maxWanted, const T &a) :
 		data(maxWanted + 1, a) {}
+
+	VecOb & operator=(const VecOb &rhs) {
+		if (this != &rhs) {
+			data = rhs.data;
+		}
+		return *this;
+	}
 
 	typename vec_t::size_type OnePast() const {
 		return data.size();
@@ -91,38 +100,36 @@ namespace OneD {
 		VecOb<int> i;
 
 	private:
-		VoxelRef(int d) : undef(true), i(d, 0) {}
+
+		VoxelRef(int d) :
+			undef(true),
+			i(d, 0) {}
 
 	public:
 
-		void Check() {
-			if (undef) {
-				for (auto &w : i) assert(w == 0);
-			} else {
-				for (auto &w : i) assert(w >= 1);
-				/* FIXME: Unknown upper bound: for (auto &i : index) assert(i <= ???); */
+		VoxelRef & operator=(const VoxelRef &rhs) {
+			if (this != &rhs) {
+				undef = rhs.undef;
+				i     = rhs.i;
+
+				Check();
 			}
+			return *this;
 		}
 
-		void SetFrom(const VoxelRef &v) {
-			assert(i.size() == v.i.size());
-
-			undef = v.undef;
-			for (size_t i = 1; i < v.i.OnePast(); i++)
-				Set(i, v.i[i]);
-
-			Check();
-		}
-
-		void Set(int d, int newI) {
-			i[d] = newI;
+		void Check() {
+			/* FIXME: Unknown upper bound: for (auto &i : index) assert(i <= ???); */
+			if (undef)
+				for (auto &w : i) assert(w == 0);
+			else
+				for (auto &w : i) assert(w >= 1);
 		}
 
 		static VoxelRef DOf(const VoxelRef &vOther, int dToSet, int newI) {
-			VoxelRef w(vOther.i.size());
-			w.SetFrom(vOther);
-			w.Set(dToSet, newI);
-			w.Check();
+			VoxelRef w(vOther);
+
+			w.i[dToSet] = newI;
+
 			return w;
 		}
 
@@ -130,36 +137,39 @@ namespace OneD {
 			return VoxelRef(0);
 		}
 
-		static VoxelRef MakeMergingPrefix(int i1, const VecOb<int> &j) {
-			VoxelRef ret(1 + j.size());
-			VecOb<int> corVec = MergePrefix(i1, j);
-
-			assert(ret.i.size() == corVec.size());
+		static VoxelRef MakeFromVec(const VecOb<int> &v) {
+			VoxelRef ret(VoxelRef::MakeUndef());
 
 			ret.undef = false;
-
-			for (size_t w = 1; w < corVec.OnePast(); w++)
-				ret.Set(w, corVec[w]);
+			ret.i = v;
 
 			return ret;
 		}
 
-		static VoxelRef MakeFromVec(const VecOb<int> &v) {
-			VoxelRef ret(v.size());
-
-			ret.undef = false;
-
-			for (size_t w = 1; w < v.OnePast(); w++)
-				ret.Set(w, v[w]);
-
-			return ret;
+		static VoxelRef MakeMergingPrefix(int i1, const VecOb<int> &j) {
+			return VoxelRef::MakeFromVec(MergePrefix(i1, j));
 		}
 
 		static bool Eq(const VoxelRef &a, const VoxelRef &b) {
 			assert(a.i.size() == b.i.size());
+
 			for (size_t i = 1; i < a.i.OnePast(); i++)
 				if (a.i[i] != b.i[i])
 					return false;
+
+			return true;
+		}
+
+		static bool Eq(const VoxelRef &a, const VecOb<int> &b) {
+			if (a.undef)
+				return false;
+
+			assert(a.i.size() == b.size());
+
+			for (size_t i = 1; i < a.i.OnePast(); i++)
+				if (a.i[i] != b[i])
+					return false;
+
 			return true;
 		}
 	};
@@ -180,6 +190,17 @@ namespace OneD {
 		}
 
 		int & operator[](const size_t i) { return dims[i]; }
+
+		size_t TotalOverAlloc() const {
+			/* Do the [0, OnePast) overallocation. '(OnePast aka ''dims[i] + 1'') - 0' */
+			int total = 1;
+
+			for (size_t i = 1; i < dims.OnePast(); i++)
+				total *= (dims[i] + 1) - 0;
+
+			return total;
+		}
+
 	};
 
 	/* dims: [1, n_d] */
@@ -188,35 +209,29 @@ namespace OneD {
 		vector<int> data;
 
 		I(const VecOb<int> &dms) :
-			dims(dms)
-		{
-			/* Do the [0, OnePast) overallocation. '(OnePast aka ''dims[i] + 1'') - 0' */
-			int total = 1;
-			for (size_t i = 1; i < dims.dims.OnePast(); i++)
-				total *= (dims[i] + 1) - 0;
-			data = vector<int>(total, 0);
-		}
+			dims(dms),
+			data(dims.TotalOverAlloc(), 0) {}
 
 		void Check() {
 			assert(dims.dims.size() == dims.accDims.size());
 		}
 
-		int & GetAtRaw(const VecOb<int> &corVec) {
+		size_t GetIdxOf(const VecOb<int> &corVec) const {
 			assert(dims.dims.size() == corVec.size());
 
-			int pos = 0;
+			size_t pos = 0;
 			for (size_t i = 1; i < corVec.OnePast(); i++)
 				pos += dims.accDims[i] * corVec[i];
 
-			return data.at(pos);
+			return pos;
 		}
 
-		int At(const VoxelRef &v) {
-			return GetAtRaw(v.i);
+		const int & operator[](const VoxelRef &v) const {
+			return data.at(GetIdxOf(v.i));
 		}
 
 		int & operator[](const VoxelRef &v) {
-			return GetAtRaw(v.i);
+			return data.at(GetIdxOf(v.i));
 		}
 
 		/* d: varying coordinate; r: rest */
@@ -235,12 +250,8 @@ namespace OneD {
 		vector<VoxelRef> data;
 
 		F(const VecOb<int> &dms) :
-			dims(dms)
-		{
-			int total = 1;
-			for (size_t i = 1; i < dims.dims.OnePast(); i++) total *= (dims[i] + 1) - 0;
-			data = vector<VoxelRef>(total, VoxelRef::MakeUndef());
-		}
+			dims(dms),
+			data(dims.TotalOverAlloc(), VoxelRef::MakeUndef()) {}
 
 		size_t GetIdxOf(const VoxelRef &at) const {
 			assert(dims.dims.size() == at.i.size());
@@ -252,8 +263,8 @@ namespace OneD {
 			return pos;
 		}
 
-		void Set(const VoxelRef &at, const VoxelRef &to) {
-			data.at(GetIdxOf(at)) = to;
+		const VoxelRef & operator[](const VoxelRef &a) const {
+			return data.at(GetIdxOf(a));
 		}
 
 		VoxelRef & operator[](const VoxelRef &a) {
@@ -264,6 +275,8 @@ namespace OneD {
 	namespace VecCount {
 
 		void ReinitLower(int d, VecOb<int> *vInOut) {
+			assert((int)vInOut->size() >= d - 1);
+
 			for (size_t i = d - 1; i >= 1; i--)
 				(*vInOut)[i] = 1;
 		}
@@ -273,6 +286,7 @@ namespace OneD {
 				throw OverflowExc();
 
 			(*vInOut)[d] += 1;
+
 			if ((*vInOut)[d] > limits[d])
 				Inc_(d + 1, limits, vInOut);
 			else
@@ -281,8 +295,15 @@ namespace OneD {
 
 		bool Inc(const VecOb<int> &limits, VecOb<int> *vInOut) {
 			assert(limits.size() == vInOut->size());
+
 			bool isOverflow = false;
-			try { Inc_(1, limits, vInOut); } catch (const OverflowExc &) { isOverflow = true; }
+
+			try {
+				Inc_(1, limits, vInOut);
+			} catch (const OverflowExc &) {
+				isOverflow = true;
+			}
+
 			return isOverflow;
 		}
 
@@ -327,6 +348,16 @@ namespace Parse {
 
 		bool Eof() {
 			return p >= s.size();
+		}
+
+		void OptSkipWs() {
+			while (!Eof() && (PeekChar() == ' ' || PeekChar() == '\t' || PeekChar() == '\n'))
+				p++;
+		}
+
+		int PeekChar() {
+			assert(!Eof());
+			return s[p];
 		}
 
 		int GetChar() {
@@ -388,7 +419,9 @@ namespace Parse {
 		}
 
 		int ExElt() {
-			return ExNum();
+			int w = ExNum();
+			OptSkipWs();
+			return w;
 		}
 	};
 
@@ -398,9 +431,12 @@ namespace Parse {
 		string e(s);
 		D d(e);
 
-		CToken tok;
-		while (!d.Eof() && (tok = d.CToken()) == TLINE) {
+		d.OptSkipWs();
+
+		while (!d.Eof() && d.CToken() == TLINE) {
 			VecOb<VoxelRef> vLine(0, VoxelRef::MakeUndef());
+
+			d.OptSkipWs();
 
 			while (!d.Eof() && d.CToken() == TELT) {
 				VecOb<int> iElt;
@@ -525,7 +561,7 @@ public:
 			for (int i1 = 1; i1 <= varN.dims[1]; i1++) {
 				VoxelRef w = VoxelRef::MakeMergingPrefix(i1, j);
 				VoxelRef u = VoxelRef::MakeUndef();
-				if (varI.At(w) == 1)
+				if (varI[w] == 1)
 					varF[w] = w;
 				else
 					varF[w] = u;
