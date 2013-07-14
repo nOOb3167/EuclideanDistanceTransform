@@ -4,6 +4,7 @@
 #include <vector>
 #include <exception>
 #include <memory>
+#include <iostream>
 
 using namespace std;
 
@@ -603,7 +604,7 @@ public:
 				m->varI[w] = rows[i][j][1];
 			}
 
-		return m;
+			return m;
 	}
 
 	/* FIXME: Not Dist Squared */
@@ -693,6 +694,21 @@ public:
 	}
 };
 
+void PF2(const Maurer &m) {
+	assert(m.varN.dims.size() == 2);
+	for (int i = 1; i <= m.varN.dims[1]; i++) {
+		cout << ";";
+		for (int j = 1; j <= m.varN.dims[2]; j++) {
+			VecOb<int> w(2); w[1] = i; w[2] = j;
+			if (m.varF[w].undef)
+				cout << " ," << "X";
+			else
+				cout << " ," << m.varF[w].i[1] << " " << m.varF[w].i[2];
+		}
+		cout << endl;
+	}
+}
+
 void T1DStr() {
 	shared_ptr<Maurer> m(Maurer::Make1DStr("10010"));
 	m->Start();
@@ -702,7 +718,8 @@ void T1DStr() {
 }
 
 void T2DStr() {
-	shared_ptr<Maurer> m(Maurer::Make2DStr("; ,0 ,0 ,0 ; ,0 ,0 ,0 ; ,0 ,0 ,0"));
+	Maurer *pm;
+	shared_ptr<Maurer> m((pm = Maurer::Make2DStr("; ,1 ,0 ,0 ; ,0 ,1 ,0 ; ,0 ,0 ,0")));
 	m->Start();
 }
 
