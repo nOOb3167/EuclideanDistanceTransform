@@ -672,10 +672,7 @@ public:
 		}
 
 		/* FIXME: Boundary case. i1...id-1 where d == 1
-		Not sure what the intention is for d == 1.
-		After the initial part computes F_(d-1), the routine should compute F_d.
-		Maybe VoronoiFT can be dummy-called (Empty 'i' part). */
-		/* Sequence interpretation: i_1...i_(d-1) :: d :: j_(d+1)...j_k must be 'k' of length, for F(xi) indexing in VoronoiFT. */
+		Sequence interpretation: i_1...i_(d-1) :: d :: j_(d+1)...j_k must be 'k' of length, for F(xi) indexing in VoronoiFT. */
 		const int lastNested = d - 1;
 		VecOb<int> limits;
 		copy_n(varN.dims.begin(), lastNested, back_inserter(limits));
@@ -683,8 +680,6 @@ public:
 		VecOb<int> count = VecCount::MakeInitial(limits);
 
 		do {
-			/* 'j' IS already j_(d+1)...j_k, no need for CutSuffix. */
-			//VoronoiFT(d, count, CutSuffix(d + 1, j)); /* FIXME: Pass the correct 'j' */
 			VoronoiFT(d, count, j);
 		} while (!VecCount::Inc(limits, &count));
 	}
