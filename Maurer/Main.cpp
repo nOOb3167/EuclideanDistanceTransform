@@ -330,6 +330,15 @@ namespace OneD {
 			return VecOb<int>(limits.size(), 1);
 		}
 
+		VecOb<int> MakeLimits(const VecOb<int> dims, int d) {
+			/* In the boundary case where d == 1, limits should still produce a sequence,
+			such that VecCount::MakeInitial(limit) produces a counter stepping variables i_1...i_(d-1),
+			with the result of appending the following: i_1...i_(d-1) :: d :: j_(d+1)...j_k being 'k' of length. */
+			VecOb<int> limits;
+			copy_n(dims.begin(), d - 1, back_inserter(limits));
+			return limits;
+		}
+
 	};
 
 	int ChrInt(char c) {
@@ -671,13 +680,8 @@ public:
 				ComputeFT(d - 1, MergePrefix(id, j));
 		}
 
-		/* FIXME: Boundary case. i1...id-1 where d == 1
-		Sequence interpretation: i_1...i_(d-1) :: d :: j_(d+1)...j_k must be 'k' of length, for F(xi) indexing in VoronoiFT. */
-		const int lastNested = d - 1;
-		VecOb<int> limits;
-		copy_n(varN.dims.begin(), lastNested, back_inserter(limits));
-
-		VecOb<int> count = VecCount::MakeInitial(limits);
+		VecOb<int> limits = VecCount::MakeLimits(varN.dims, d);
+		VecOb<int> count  = VecCount::MakeInitial(limits);
 
 		do {
 			VoronoiFT(d, count, j);
