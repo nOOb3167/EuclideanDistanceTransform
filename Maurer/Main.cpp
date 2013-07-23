@@ -60,6 +60,15 @@ public:
 	typename vec_t::const_iterator begin() const { return ++data.begin(); }
 	typename vec_t::const_iterator end() const { return data.end(); }
 	void                           push_back(const T& val) { data.push_back(val); }
+
+	static VecOb<T> MakeND(int nd, const T &v) {
+		VecOb<T> w;
+
+		for (int i = 0; i < nd; i++)
+			w.push_back(v);
+
+		return w;
+	}
 };
 
 namespace OneD {
@@ -112,18 +121,8 @@ namespace OneD {
 			if (this != &rhs) {
 				undef = rhs.undef;
 				i     = rhs.i;
-
-				Check();
 			}
 			return *this;
-		}
-
-		void Check() {
-			/* FIXME: Unknown upper bound: for (auto &i : index) assert(i <= ???); */
-			if (undef)
-				for (auto &w : i) assert(w == 0);
-			else
-				for (auto &w : i) assert(w >= 1);
 		}
 
 		static VoxelRef DOf(const VoxelRef &vOther, int dToSet, int newI) {
@@ -193,16 +192,14 @@ namespace OneD {
 
 		int & operator[](const size_t i) { return dims[i]; }
 
-		size_t TotalOverAlloc() const {
-			/* Do the [0, OnePast) overallocation. '(OnePast aka ''dims[i] + 1'') - 0' */
+		size_t TotalAlloc() const {
 			int total = 1;
 
 			for (size_t i = 1; i < dims.OnePast(); i++)
-				total *= (dims[i] + 1) - 0;
+				total *= dims[i];
 
 			return total;
 		}
-
 	};
 
 	template<typename T>
@@ -213,14 +210,17 @@ namespace OneD {
 		template<typename DefVal>
 		NStore(const VecOb<int> &dms, const DefVal &val) :
 			dims(dms),
-			data(dims.TotalOverAlloc(), val) {}
+			data(dims.TotalAlloc(), val) {}
 
 		size_t GetIdxOf(const VecOb<int> &corVec) const {
 			assert(dims.dims.size() == corVec.size());
 
+			for (auto &i : corVec)
+				assert(i > 0);
+
 			size_t pos = 0;
 			for (size_t i = 1; i < corVec.OnePast(); i++)
-				pos += dims.accDims[i] * corVec[i];
+				pos += dims.accDims[i] * (corVec[i] - 1);
 
 			return pos;
 		}
@@ -664,6 +664,58 @@ public:
 	}
 };
 
+namespace DEuc {
+
+	typedef NStore<VoxelRef> F;
+
+	struct DEuc2D {
+		N varN;
+		I varI;
+		F varF;
+
+	private:
+		DEuc2D(const VecOb<int> &dms) :
+			varN(dms),
+			varI(dms),
+			varF(dms, VoxelRef::MakeFromVec(VecOb<int>::MakeND(2, 0))) {}
+
+	public:
+
+		static DEuc2D * Make2DStr(const string &s) {
+			Parse::rows_t rows = Parse::GetRows(s);
+			Parse::CheckInnerSize(rows, 1);
+
+			DEuc2D *m = new DEuc2D(Parse::GetRowsDims(rows));
+
+			assert(m->varN.dims.size() == 2);
+
+			for (int i = 1; i <= m->varN[1]; i++)
+				for (int j = 1; j <= m->varN[2]; j++) {
+					VecOb<int> w; w.push_back(i); w.push_back(j);
+					m->varI[w] = rows[i][j][1];
+
+					/* Borgefors84::2:'zero for feature elements and infinity otherwise' */
+					switch (m->varI[w]) {
+					case 0:
+						m->varF[w] = VoxelRef::MakeUndef();
+						break;
+					case 1:
+						m->varF[w] = VoxelRef::MakeFromVec(VecOb<int>::MakeND(2, 0));
+						break;
+					default:
+						assert(0);
+					}
+				}
+
+			return m;
+		}
+
+		void Start() {
+		}
+	};
+
+};
+
 void PF2(const Maurer &m) {
 	assert(m.varN.dims.size() == 2);
 	for (int i = 1; i <= m.varN.dims[1]; i++) {
@@ -693,8 +745,16 @@ void T2DStr() {
 	m->Start();
 }
 
+void TE2DStr() {
+	using namespace DEuc;
+	DEuc2D *pm;
+	shared_ptr<DEuc2D> m((pm = DEuc2D::Make2DStr("; ,1 ,0 ,0 ; ,0 ,1 ,0 ; ,0 ,0 ,0")));
+	m->Start();
+}
+
 int main(int argc, char **argv) {
 	//T1DStr();
 	T2DStr();
+	TE2DStr();
 	return EXIT_SUCCESS;
 }
