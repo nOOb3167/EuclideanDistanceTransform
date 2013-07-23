@@ -205,18 +205,15 @@ namespace OneD {
 
 	};
 
-	/* dims: [1, n_d] */
-	struct I {
+	template<typename T>
+	struct NStore {
 		N dims;
-		vector<int> data;
+		vector<T> data;
 
-		I(const VecOb<int> &dms) :
+		template<typename DefVal>
+		NStore(const VecOb<int> &dms, const DefVal &val) :
 			dims(dms),
-			data(dims.TotalOverAlloc(), 0) {}
-
-		void Check() {
-			assert(dims.dims.size() == dims.accDims.size());
-		}
+			data(dims.TotalOverAlloc(), val) {}
 
 		size_t GetIdxOf(const VecOb<int> &corVec) const {
 			assert(dims.dims.size() == corVec.size());
@@ -228,23 +225,27 @@ namespace OneD {
 			return pos;
 		}
 
-		const int & operator[](const VoxelRef &v) const {
+		const T & operator[](const VoxelRef &v) const {
 			assert(!v.undef);
 			return data.at(GetIdxOf(v.i));
 		}
 
-		int & operator[](const VoxelRef &v) {
+		T & operator[](const VoxelRef &v) {
 			assert(!v.undef);
 			return data.at(GetIdxOf(v.i));
 		}
 
-		const int & operator[](const VecOb<int> &v) const {
+		const T & operator[](const VecOb<int> &v) const {
 			return data.at(GetIdxOf(v));
 		}
 
-		int & operator[](const VecOb<int> &v) {
+		T & operator[](const VecOb<int> &v) {
 			return data.at(GetIdxOf(v));
 		}
+	};
+
+	struct I : public NStore<int> {
+		I(const VecOb<int> &dms) : NStore(dms, 0) {}
 
 		/* d: varying coordinate; r: rest */
 		vector<VoxelRef> GetRow(int d, const VoxelRef &r) {
@@ -257,39 +258,8 @@ namespace OneD {
 		}
 	};
 
-	struct F {
-		N dims;
-		vector<VoxelRef> data;
-
-		F(const VecOb<int> &dms) :
-			dims(dms),
-			data(dims.TotalOverAlloc(), VoxelRef::MakeUndef()) {}
-
-		size_t GetIdxOf(const VoxelRef &at) const {
-			assert(dims.dims.size() == at.i.size());
-
-			int pos = 0;
-			for (size_t i = 1; i < at.i.OnePast(); i++)
-				pos += dims.accDims[i] * at.i[i];
-
-			return pos;
-		}
-
-		const VoxelRef & operator[](const VoxelRef &a) const {
-			return data.at(GetIdxOf(a));
-		}
-
-		VoxelRef & operator[](const VoxelRef &a) {
-			return data.at(GetIdxOf(a));
-		}
-
-		const VoxelRef & operator[](const VecOb<int> &a) const {
-			return data.at(GetIdxOf(VoxelRef::MakeFromVec(a)));
-		}
-
-		VoxelRef & operator[](const VecOb<int> &a) {
-			return data.at(GetIdxOf(VoxelRef::MakeFromVec(a)));
-		}
+	struct F : public NStore<VoxelRef> {
+		F(const VecOb<int> &dms) : NStore(dms, VoxelRef::MakeUndef()) {}
 	};
 
 	namespace VecCount {
