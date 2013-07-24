@@ -69,6 +69,17 @@ public:
 
 		return w;
 	}
+
+	static VecOb<int> Add(const VecOb<int> &p, const VecOb<int> &r) {
+		VecOb<int> w;
+
+		assert(p.size() == r.size());
+
+		for (size_t i = 1; i < p.OnePast(); i++)
+			w.push_back(p[i] + r[i]);
+
+		return w;
+	}
 };
 
 namespace OneD {
@@ -173,6 +184,37 @@ namespace OneD {
 
 			return Eq(a.i, b);
 		}
+
+		static VoxelRef Add(const VoxelRef &a, const VecOb<int> &b) {
+			if (a.undef)
+				return a;
+
+			VecOb<int> w;
+
+			assert(a.i.size() == b.size());
+
+			for (size_t i = 1; i < b.OnePast(); i++)
+				w.push_back(a.i[i] + b[i]);
+
+			return VoxelRef::MakeFromVec(w);
+		}
+
+		static int Euc(const VoxelRef &a) {
+			int sum = 0;
+			for (size_t i = 1; i < a.i.OnePast(); i++)
+				sum += a.i[i] * a.i[i];
+			return sum;
+		}
+
+		static VoxelRef MinEuc(const VoxelRef &a, const VoxelRef &b) {
+			if (a.undef) return b;
+			if (b.undef) return a;
+
+			assert(a.i.size() == b.i.size());
+
+			if (Euc(a) < Euc(b)) return a;
+			else                 return b;
+		}
 	};
 
 	struct N {
@@ -191,6 +233,7 @@ namespace OneD {
 		}
 
 		int & operator[](const size_t i) { return dims[i]; }
+		const int & operator[](const size_t i) const { return dims[i]; }
 
 		size_t TotalAlloc() const {
 			int total = 1;
@@ -211,6 +254,16 @@ namespace OneD {
 		NStore(const VecOb<int> &dms, const DefVal &val) :
 			dims(dms),
 			data(dims.TotalAlloc(), val) {}
+
+		bool IsInBounds(const VecOb<int> &corVec) const {
+			assert(dims.dims.size() == corVec.size());
+
+			for (size_t i = 1; i < corVec.OnePast(); i++)
+				if (corVec[i] < 0 || corVec[i] > dims[i])
+					return false;
+
+			return true;
+		}
 
 		size_t GetIdxOf(const VecOb<int> &corVec) const {
 			assert(dims.dims.size() == corVec.size());
@@ -707,28 +760,141 @@ namespace DEuc {
 					}
 				}
 
-			return m;
+				return m;
 		}
 
 		void Start() {
+		}
+
+		/* FIXME: (x,y) or (y,x) ? Borgefors84::Algorithm 1. uses (y,x)
+		Decided on use of (x,y) for consistency */
+		struct Mask2D {
+			VecOb<VecOb<int> > pos;
+			VecOb<VecOb<int> > add;
+
+			static Mask2D Make2D_F() {
+				Mask2D r;
+
+				int p[] = {
+					-1, -1, 0, -1, 1, -1,
+					-1,  0, 0,  0,
+				};
+				int a[] = {
+					1, 1, 0, 1, 1, 1,
+					1, 0, 0, 0,
+				};
+
+				assert(sizeof(p)/sizeof(*p) == sizeof(a)/sizeof(*a));
+				assert((sizeof(p)/sizeof(*p)) % 2 == 0);
+
+				for (int i = 0; i < sizeof(p)/sizeof(*p); i += 2) {
+					VecOb<int> w; w.push_back(p[i]); w.push_back(p[i+1]);
+					VecOb<int> q; q.push_back(a[i]); q.push_back(a[i+1]);
+					r.pos.push_back(w);
+					r.add.push_back(q);
+				}
+
+				return r;
+			}
+
+			static Mask2D Make2D_B() {
+				Mask2D r;
+
+				int p[] = {
+					0, 0, 1, 0,
+				};
+				int a[] = {
+					0, 0, 1, 0,
+				};
+
+				assert(sizeof(p)/sizeof(*p) == sizeof(a)/sizeof(*a));
+				assert((sizeof(p)/sizeof(*p)) % 2 == 0);
+
+				for (int i = 0; i < sizeof(p)/sizeof(*p); i += 2) {
+					VecOb<int> w; w.push_back(p[i]); w.push_back(p[i+1]);
+					VecOb<int> q; q.push_back(a[i]); q.push_back(a[i+1]);
+					r.pos.push_back(w);
+					r.add.push_back(q);
+				}
+
+				return r;
+			}
+
+			size_t size() const {
+				return pos.size();
+			}
+
+			VoxelRef LowestFAround(const F &varF, const VecOb<int> &p) {
+				VecOb<VoxelRef> vox(0, VoxelRef::MakeUndef());
+
+				for (size_t i = 1; i <= size(); i++) {
+					VecOb<int> candidate = VecOb<int>::Add(p, pos[i]);
+					if (varF.IsInBounds(candidate))
+						vox.push_back(VoxelRef::Add(varF[candidate], add[i]));
+				}
+
+				assert(vox.size());
+
+				VoxelRef cur = vox[1];
+
+				for (auto &i : vox)
+					cur = VoxelRef::MinEuc(cur, i);
+
+				return cur;
+			}
+		};
+
+		void Start2D() {
+			assert(varN.dims.size() == 2);
+
+			Mask2D maskF = Mask2D::Make2D_F();
+			Mask2D maskB = Mask2D::Make2D_B();;
+
+			/* Forward pass */
+			for (int r = 2; r <= varN.dims[1]; r++) {
+				/* L->R */
+				for (int c = 2; c <= varN.dims[2]; c++) {
+					VecOb<int> w; w.push_back(c); w.push_back(r);
+					varF[w] = maskF.LowestFAround(varF, w);
+				}
+
+				/* R->L */
+				for (int c = varN.dims[2] - 1; c >= 1; c--) {
+					VecOb<int> w; w.push_back(c); w.push_back(r);
+					varF[w] = maskB.LowestFAround(varF, w);
+				}
+			}
 		}
 	};
 
 };
 
-void PF2(const Maurer &m) {
-	assert(m.varN.dims.size() == 2);
-	for (int i = 1; i <= m.varN.dims[1]; i++) {
+template<typename T>
+void PFELT2(const T &varF, const VecOb<int> &a) {
+	if (varF[a].undef) cout << " ," << "X X";
+	else               cout << " ," << varF[a].i[1] << " " << varF[a].i[2];
+}
+
+template<typename T>
+void PF2(const T &varF) {
+	assert(varF.dims.dims.size() == 2);
+	for (int r = 1; r <= varF.dims[1]; r++) {
 		cout << ";";
-		for (int j = 1; j <= m.varN.dims[2]; j++) {
-			VecOb<int> w(2); w[1] = i; w[2] = j;
-			if (m.varF[w].undef)
-				cout << " ," << "X";
-			else
-				cout << " ," << m.varF[w].i[1] << " " << m.varF[w].i[2];
+		for (int c = 1; c <= varF.dims[2]; c++) {
+			VecOb<int> w; w.push_back(c); w.push_back(r);
+			PFELT2(varF, w);
 		}
 		cout << endl;
 	}
+	cout << endl;
+}
+
+void PM2(const Maurer &m) {
+	PF2(m.varF);
+}
+
+void PD2(const DEuc::DEuc2D &m) {
+	PF2(m.varF);
 }
 
 void T1DStr() {
@@ -749,7 +915,7 @@ void TE2DStr() {
 	using namespace DEuc;
 	DEuc2D *pm;
 	shared_ptr<DEuc2D> m((pm = DEuc2D::Make2DStr("; ,1 ,0 ,0 ; ,0 ,1 ,0 ; ,0 ,0 ,0")));
-	m->Start();
+	m->Start2D();
 }
 
 int main(int argc, char **argv) {
