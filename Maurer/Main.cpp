@@ -827,6 +827,32 @@ namespace DEuc {
 				return MASK_MAKE(2, p, a);
 			}
 
+			static Mask Make2D_BF() {
+				int p[] = {
+					0, 0, 1, 0,
+					-1, 1, 0, 1, 1, 1,
+				};
+
+				int a[] = {
+					0, 0, 1, 0,
+					1, 1, 0, 1, 1, 1,
+				};
+
+				return MASK_MAKE(2, p, a);
+			}
+
+			static Mask Make2D_BB() {
+				int p[] = {
+					-1, 0, 0, 0,
+				};
+
+				int a[] = {
+					1, 0, 0, 0,
+				};
+
+				return MASK_MAKE(2, p, a);
+			}
+
 			size_t size() const {
 				return pos.size();
 			}
@@ -854,21 +880,24 @@ namespace DEuc {
 		void Start2D() {
 			assert(varN.dims.size() == 2);
 
-			Mask maskF = Mask::Make2D_FF();
-			Mask maskB = Mask::Make2D_FB();
+			Mask maskFF = Mask::Make2D_FF();
+			Mask maskFB = Mask::Make2D_FB();
+
+			Mask maskBF = Mask::Make2D_BF();
+			Mask maskBB = Mask::Make2D_BB();
 
 			/* Forward pass */
-			for (int r = 2; r <= varN.dims[1]; r++) {
+			for (int r = 2; r <= varN.dims[2]; r++) {
 				/* L->R */
-				for (int c = 2; c <= varN.dims[2]; c++) {
+				for (int c = 2; c <= varN.dims[1]; c++) {
 					VecOb<int> w; w.push_back(c); w.push_back(r);
-					varF[w] = maskF.LowestFAround(varF, w);
+					varF[w] = maskFF.LowestFAround(varF, w);
 				}
 
 				/* R->L */
-				for (int c = varN.dims[2] - 1; c >= 1; c--) {
+				for (int c = varN.dims[1] - 1; c >= 1; c--) {
 					VecOb<int> w; w.push_back(c); w.push_back(r);
-					varF[w] = maskB.LowestFAround(varF, w);
+					varF[w] = maskFB.LowestFAround(varF, w);
 				}
 			}
 		}
