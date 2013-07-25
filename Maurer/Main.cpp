@@ -259,7 +259,7 @@ namespace OneD {
 			assert(dims.dims.size() == corVec.size());
 
 			for (size_t i = 1; i < corVec.OnePast(); i++)
-				if (corVec[i] < 0 || corVec[i] > dims[i])
+				if (corVec[i] < 1 || corVec[i] > dims[i])
 					return false;
 
 			return true;
@@ -898,6 +898,21 @@ namespace DEuc {
 				for (int c = varN.dims[1] - 1; c >= 1; c--) {
 					VecOb<int> w; w.push_back(c); w.push_back(r);
 					varF[w] = maskFB.LowestFAround(varF, w);
+				}
+			}
+
+			/* Backward pass */
+			for (int r = varN.dims[2]; r >= 1; r--) {
+				/* R->L */
+				for (int c = varN.dims[1]; c >= 1; c--) {
+					VecOb<int> w; w.push_back(c); w.push_back(r);
+					varF[w] = maskBF.LowestFAround(varF, w);
+				}
+
+				/* L->R */
+				for (int c = 1; c <= varN.dims[1]; c++) {
+					VecOb<int> w; w.push_back(c); w.push_back(r);
+					varF[w] = maskBB.LowestFAround(varF, w);
 				}
 			}
 		}
