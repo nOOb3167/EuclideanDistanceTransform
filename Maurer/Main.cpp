@@ -10,6 +10,16 @@ using namespace std;
 
 class OverflowExc : public ::std::exception {};
 
+/**
+= Dimension convention =
+dims[1] = x (cols)
+dims[2] = y (rows)
+== Inside Parse vvLines ==
+vvLines    = rows
+vvLines[m] = rowM
+vvLines[m][n] = rowM, colN
+*/
+
 template <typename T>
 class VecOb {
 public:
@@ -566,8 +576,8 @@ namespace Parse {
 		assert(vvLines.size());
 		CheckUniformDims(vvLines);
 
-		w.push_back(vvLines.size());
 		w.push_back(vvLines[1].size());
+		w.push_back(vvLines.size());
 
 		return w;
 	}
@@ -717,47 +727,163 @@ public:
 	}
 };
 
-namespace DEuc {
+namespace B84d {
 
 	typedef NStore<VoxelRef> F;
 
-	struct DEuc2D {
+	/* FIXME: (x,y) or (y,x) ? Borgefors84::Algorithm 1. uses (y,x)
+	Decided on use of (x,y) for consistency */
+	struct Mask {
+		size_t n;
+
+		VecOb<VecOb<int> > pos;
+		VecOb<VecOb<int> > add;
+
+		/* Multieval */
+#define MASK_MAKE(n, p, a) (Make((n), (p), sizeof((p))/sizeof((*p)), (a), sizeof((a))/sizeof((*a))))
+
+		static Mask Make(size_t n, int p[], size_t pLen, int a[], size_t aLen) {
+			Mask r;
+
+			r.n = n;
+
+			assert(pLen == aLen);
+			assert(pLen % n == 0);
+
+			for (size_t i = 0; i < pLen; i += n) {
+				VecOb<int> nPos;
+				VecOb<int> nAdd;
+
+				for (size_t j = 0; j < n; j++)
+					nPos.push_back(p[i+j]);
+				for (size_t j = 0; j < n; j++)
+					nAdd.push_back(a[i+j]);
+
+				r.pos.push_back(nPos);
+				r.add.push_back(nAdd);
+			}
+
+			return r;
+		}
+
+		static Mask Make2D_FF() {
+			int p[] = {
+				-1, -1, 0, -1, 1, -1,
+				-1,  0, 0,  0,
+			};
+
+			int a[] = {
+				1, 1, 0, 1, 1, 1,
+				1, 0, 0, 0,
+			};
+
+			return MASK_MAKE(2, p, a);
+		}
+
+		static Mask Make2D_FB() {
+			int p[] = {
+				0, 0, 1, 0,
+			};
+
+			int a[] = {
+				0, 0, 1, 0,
+			};
+
+			return MASK_MAKE(2, p, a);
+		}
+
+		static Mask Make2D_BF() {
+			int p[] = {
+				0, 0, 1, 0,
+				-1, 1, 0, 1, 1, 1,
+			};
+
+			int a[] = {
+				0, 0, 1, 0,
+				1, 1, 0, 1, 1, 1,
+			};
+
+			return MASK_MAKE(2, p, a);
+		}
+
+		static Mask Make2D_BB() {
+			int p[] = {
+				-1, 0, 0, 0,
+			};
+
+			int a[] = {
+				1, 0, 0, 0,
+			};
+
+			return MASK_MAKE(2, p, a);
+		}
+
+		size_t size() const {
+			return pos.size();
+		}
+
+		VoxelRef LowestFAround(const F &varF, const VecOb<int> &p) const {
+			VecOb<VoxelRef> vox(0, VoxelRef::MakeUndef());
+
+			for (size_t i = 1; i <= size(); i++) {
+				VecOb<int> candidate = VecOb<int>::Add(p, pos[i]);
+				if (varF.IsInBounds(candidate))
+					vox.push_back(VoxelRef::Add(varF[candidate], add[i]));
+			}
+
+			assert(vox.size());
+
+			VoxelRef cur = vox[1];
+
+			for (auto &i : vox)
+				cur = VoxelRef::MinEuc(cur, i);
+
+			return cur;
+		}
+	};
+
+	struct DEuc {
 		N varN;
 		I varI;
 		F varF;
 
 	private:
-		DEuc2D(const VecOb<int> &dms) :
+		DEuc(const VecOb<int> &dms) :
 			varN(dms),
 			varI(dms),
-			varF(dms, VoxelRef::MakeFromVec(VecOb<int>::MakeND(2, 0))) {}
+			varF(dms, VoxelRef::MakeFromVec(VecOb<int>::MakeND(dms.size(), 0))) {}
 
 	public:
 
-		static DEuc2D * Make2DStr(const string &s) {
+		void InitIFElt(const VecOb<int> &w, int rowsVal) {
+			varI[w] = rowsVal;
+
+			/* Borgefors84::2:'zero for feature elements and infinity otherwise' */
+			switch (rowsVal) {
+			case 0:
+				varF[w] = VoxelRef::MakeUndef();
+				break;
+			case 1:
+				varF[w] = VoxelRef::MakeFromVec(VecOb<int>::MakeND(varN.dims.size(), 0));
+				break;
+			default:
+				assert(0);
+			}
+		}
+
+		static DEuc * Make2DStr(const string &s) {
 			Parse::rows_t rows = Parse::GetRows(s);
 			Parse::CheckInnerSize(rows, 1);
 
-			DEuc2D *m = new DEuc2D(Parse::GetRowsDims(rows));
+			DEuc *m = new DEuc(Parse::GetRowsDims(rows));
 
 			assert(m->varN.dims.size() == 2);
 
-			for (int i = 1; i <= m->varN[1]; i++)
-				for (int j = 1; j <= m->varN[2]; j++) {
-					VecOb<int> w; w.push_back(i); w.push_back(j);
-					m->varI[w] = rows[i][j][1];
+			for (int r = 1; r <= m->varN[2]; r++)
+				for (int c = 1; c <= m->varN[1]; c++) {
+					VecOb<int> w; w.push_back(c); w.push_back(r);
 
-					/* Borgefors84::2:'zero for feature elements and infinity otherwise' */
-					switch (m->varI[w]) {
-					case 0:
-						m->varF[w] = VoxelRef::MakeUndef();
-						break;
-					case 1:
-						m->varF[w] = VoxelRef::MakeFromVec(VecOb<int>::MakeND(2, 0));
-						break;
-					default:
-						assert(0);
-					}
+					m->InitIFElt(w, rows[r][c][1]);
 				}
 
 				return m;
@@ -765,117 +891,6 @@ namespace DEuc {
 
 		void Start() {
 		}
-
-		/* FIXME: (x,y) or (y,x) ? Borgefors84::Algorithm 1. uses (y,x)
-		Decided on use of (x,y) for consistency */
-		struct Mask {
-			size_t n;
-
-			VecOb<VecOb<int> > pos;
-			VecOb<VecOb<int> > add;
-
-			/* Multieval */
-#define MASK_MAKE(n, p, a) (Make((n), (p), sizeof((p))/sizeof((*p)), (a), sizeof((a))/sizeof((*a))))
-
-			static Mask Make(size_t n, int p[], size_t pLen, int a[], size_t aLen) {
-				Mask r;
-
-				r.n = n;
-
-				assert(pLen == aLen);
-				assert(pLen % n == 0);
-
-				for (size_t i = 0; i < pLen; i += n) {
-					VecOb<int> nPos;
-					VecOb<int> nAdd;
-
-					for (size_t j = 0; j < n; j++)
-						nPos.push_back(p[i+j]);
-					for (size_t j = 0; j < n; j++)
-						nAdd.push_back(a[i+j]);
-
-					r.pos.push_back(nPos);
-					r.add.push_back(nAdd);
-				}
-
-				return r;
-			}
-
-			static Mask Make2D_FF() {
-				int p[] = {
-					-1, -1, 0, -1, 1, -1,
-					-1,  0, 0,  0,
-				};
-
-				int a[] = {
-					1, 1, 0, 1, 1, 1,
-					1, 0, 0, 0,
-				};
-
-				return MASK_MAKE(2, p, a);
-			}
-
-			static Mask Make2D_FB() {
-				int p[] = {
-					0, 0, 1, 0,
-				};
-
-				int a[] = {
-					0, 0, 1, 0,
-				};
-
-				return MASK_MAKE(2, p, a);
-			}
-
-			static Mask Make2D_BF() {
-				int p[] = {
-					0, 0, 1, 0,
-					-1, 1, 0, 1, 1, 1,
-				};
-
-				int a[] = {
-					0, 0, 1, 0,
-					1, 1, 0, 1, 1, 1,
-				};
-
-				return MASK_MAKE(2, p, a);
-			}
-
-			static Mask Make2D_BB() {
-				int p[] = {
-					-1, 0, 0, 0,
-				};
-
-				int a[] = {
-					1, 0, 0, 0,
-				};
-
-				return MASK_MAKE(2, p, a);
-			}
-
-			size_t size() const {
-				return pos.size();
-			}
-
-			VoxelRef LowestFAround(const F &varF, const VecOb<int> &p) const {
-				VecOb<VoxelRef> vox(0, VoxelRef::MakeUndef());
-
-				for (size_t i = 1; i <= size(); i++) {
-					VecOb<int> candidate = VecOb<int>::Add(p, pos[i]);
-					if (varF.IsInBounds(candidate))
-						vox.push_back(VoxelRef::Add(varF[candidate], add[i]));
-				}
-
-				assert(vox.size());
-
-				VoxelRef cur = vox[1];
-
-				for (auto &i : vox)
-					cur = VoxelRef::MinEuc(cur, i);
-
-				return cur;
-			}
-		};
 
 		void Start2D() {
 			assert(varN.dims.size() == 2);
@@ -929,9 +944,9 @@ void PFELT2(const T &varF, const VecOb<int> &a) {
 template<typename T>
 void PF2(const T &varF) {
 	assert(varF.dims.dims.size() == 2);
-	for (int r = 1; r <= varF.dims[1]; r++) {
+	for (int r = 1; r <= varF.dims[2]; r++) {
 		cout << ";";
-		for (int c = 1; c <= varF.dims[2]; c++) {
+		for (int c = 1; c <= varF.dims[1]; c++) {
 			VecOb<int> w; w.push_back(c); w.push_back(r);
 			PFELT2(varF, w);
 		}
@@ -944,7 +959,7 @@ void PM2(const Maurer &m) {
 	PF2(m.varF);
 }
 
-void PD2(const DEuc::DEuc2D &m) {
+void PD2(const B84d::DEuc &m) {
 	PF2(m.varF);
 }
 
@@ -963,9 +978,9 @@ void T2DStr() {
 }
 
 void TE2DStr() {
-	using namespace DEuc;
-	DEuc2D *pm;
-	shared_ptr<DEuc2D> m((pm = DEuc2D::Make2DStr("; ,1 ,0 ,0 ; ,0 ,1 ,0 ; ,0 ,0 ,0")));
+	using namespace B84d;
+	DEuc *pm;
+	shared_ptr<DEuc> m((pm = DEuc::Make2DStr("; ,1 ,0 ,0 ; ,0 ,1 ,0 ; ,0 ,0 ,0")));
 	m->Start2D();
 }
 
