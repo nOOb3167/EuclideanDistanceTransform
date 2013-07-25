@@ -768,63 +768,70 @@ namespace DEuc {
 
 		/* FIXME: (x,y) or (y,x) ? Borgefors84::Algorithm 1. uses (y,x)
 		Decided on use of (x,y) for consistency */
-		struct Mask2D {
+		struct Mask {
+			size_t n;
+
 			VecOb<VecOb<int> > pos;
 			VecOb<VecOb<int> > add;
 
-			static Mask2D Make2D_F() {
-				Mask2D r;
+			/* Multieval */
+#define MASK_MAKE(n, p, a) (Make((n), (p), sizeof((p))/sizeof((*p)), (a), sizeof((a))/sizeof((*a))))
 
-				int p[] = {
-					-1, -1, 0, -1, 1, -1,
-					-1,  0, 0,  0,
-				};
-				int a[] = {
-					1, 1, 0, 1, 1, 1,
-					1, 0, 0, 0,
-				};
+			static Mask Make(size_t n, int p[], size_t pLen, int a[], size_t aLen) {
+				Mask r;
 
-				assert(sizeof(p)/sizeof(*p) == sizeof(a)/sizeof(*a));
-				assert((sizeof(p)/sizeof(*p)) % 2 == 0);
+				r.n = n;
 
-				for (int i = 0; i < sizeof(p)/sizeof(*p); i += 2) {
-					VecOb<int> w; w.push_back(p[i]); w.push_back(p[i+1]);
-					VecOb<int> q; q.push_back(a[i]); q.push_back(a[i+1]);
-					r.pos.push_back(w);
-					r.add.push_back(q);
+				assert(pLen == aLen);
+				assert(pLen % n == 0);
+
+				for (size_t i = 0; i < pLen; i += n) {
+					VecOb<int> nPos;
+					VecOb<int> nAdd;
+
+					for (size_t j = 0; j < n; j++)
+						nPos.push_back(p[i+j]);
+					for (size_t j = 0; j < n; j++)
+						nAdd.push_back(a[i+j]);
+
+					r.pos.push_back(nPos);
+					r.add.push_back(nAdd);
 				}
 
 				return r;
 			}
 
-			static Mask2D Make2D_B() {
-				Mask2D r;
+			static Mask Make2D_FF() {
+				int p[] = {
+					-1, -1, 0, -1, 1, -1,
+					-1,  0, 0,  0,
+				};
 
+				int a[] = {
+					1, 1, 0, 1, 1, 1,
+					1, 0, 0, 0,
+				};
+
+				return MASK_MAKE(2, p, a);
+			}
+
+			static Mask Make2D_FB() {
 				int p[] = {
 					0, 0, 1, 0,
 				};
+
 				int a[] = {
 					0, 0, 1, 0,
 				};
 
-				assert(sizeof(p)/sizeof(*p) == sizeof(a)/sizeof(*a));
-				assert((sizeof(p)/sizeof(*p)) % 2 == 0);
-
-				for (int i = 0; i < sizeof(p)/sizeof(*p); i += 2) {
-					VecOb<int> w; w.push_back(p[i]); w.push_back(p[i+1]);
-					VecOb<int> q; q.push_back(a[i]); q.push_back(a[i+1]);
-					r.pos.push_back(w);
-					r.add.push_back(q);
-				}
-
-				return r;
+				return MASK_MAKE(2, p, a);
 			}
 
 			size_t size() const {
 				return pos.size();
 			}
 
-			VoxelRef LowestFAround(const F &varF, const VecOb<int> &p) {
+			VoxelRef LowestFAround(const F &varF, const VecOb<int> &p) const {
 				VecOb<VoxelRef> vox(0, VoxelRef::MakeUndef());
 
 				for (size_t i = 1; i <= size(); i++) {
@@ -847,8 +854,8 @@ namespace DEuc {
 		void Start2D() {
 			assert(varN.dims.size() == 2);
 
-			Mask2D maskF = Mask2D::Make2D_F();
-			Mask2D maskB = Mask2D::Make2D_B();;
+			Mask maskF = Mask::Make2D_FF();
+			Mask maskB = Mask::Make2D_FB();
 
 			/* Forward pass */
 			for (int r = 2; r <= varN.dims[1]; r++) {
