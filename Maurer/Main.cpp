@@ -490,14 +490,6 @@ namespace Parse {
 		}
 	};
 
-	void CheckSameSize(const row_t &vLine) {
-		size_t *t = nullptr;
-
-		for (auto &i : vLine)
-			if (!t) *t = i.size();
-			else    assert(*t == i.size());
-	}
-
 	void CheckSameSizes(const rows_t &vvLines) {
 		size_t *t = nullptr;
 
@@ -578,6 +570,20 @@ namespace Parse {
 
 		w.push_back(vvLines[1].size());
 		w.push_back(vvLines.size());
+
+		return w;
+	}
+
+	VecOb<int> GetUniformDims3(const rows_t &vvLines) {
+		assert(vvLines.size());
+		const int colLen = vvLines[1].size();
+		const int rowsNeeded = colLen * colLen;
+		assert(vvLines.size() == rowsNeeded);
+
+		VecOb<int> w;
+		w.push_back(colLen);
+		w.push_back(colLen);
+		w.push_back(colLen);
 
 		return w;
 	}
@@ -889,6 +895,23 @@ namespace B84d {
 				return m;
 		}
 
+		static DEuc * Make3DUniformStr(const string &s) {
+			Parse::rows_t rows = Parse::GetRows(s);
+			Parse::CheckInnerSize(rows, 1);
+
+			DEuc *m = new DEuc(Parse::GetUniformDims3(rows));
+
+			for (int s = 1; s <= m->varN[3]; s++)
+				for (int r = 1; r <= m->varN[2]; r++)
+					for (int c = 1; c <= m->varN[1]; c++) {
+						VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
+
+						m->InitIFElt(w, rows[(m->varN[2] * (s-1)) + r][c][1]);
+					}
+
+					return m;
+		}
+
 		void Start() {
 		}
 
@@ -930,6 +953,10 @@ namespace B84d {
 					varF[w] = maskBB.LowestFAround(varF, w);
 				}
 			}
+		}
+
+		void Start3D() {
+
 		}
 	};
 
@@ -984,9 +1011,20 @@ void TE2DStr() {
 	m->Start2D();
 }
 
+void TE3DStr() {
+	using namespace B84d;
+	DEuc *pm;
+	shared_ptr<DEuc> m((pm = DEuc::Make3DUniformStr(
+		"; ,1 ,0 ,0 ; ,0 ,1 ,0 ; ,0 ,0 ,0"
+		"; ,0 ,0 ,0 ; ,0 ,0 ,0 ; ,0 ,0 ,0"
+		"; ,0 ,0 ,0 ; ,0 ,0 ,0 ; ,0 ,0 ,0")));
+	m->Start3D();
+}
+
 int main(int argc, char **argv) {
 	//T1DStr();
 	T2DStr();
 	TE2DStr();
+	TE3DStr();
 	return EXIT_SUCCESS;
 }
