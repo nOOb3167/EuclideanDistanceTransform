@@ -843,7 +843,7 @@ namespace B84d {
 				1, 0, 0, 0, 0, 0,
 			};
 
-			return MASK_MAKE(2, p, a);
+			return MASK_MAKE(3, p, a);
 		}
 
 		static Mask Make3D_FFB() {
@@ -855,7 +855,7 @@ namespace B84d {
 				0, 0, 0, 1, 0, 0,
 			};
 
-			return MASK_MAKE(2, p, a);
+			return MASK_MAKE(3, p, a);
 		}
 
 		static Mask Make3D_FBF() {
@@ -869,7 +869,7 @@ namespace B84d {
 				1, 1, 0, 0, 1, 0, 1, 1, 0,
 			};
 
-			return MASK_MAKE(2, p, a);
+			return MASK_MAKE(3, p, a);
 		}
 
 		static Mask Make3D_FBB() {
@@ -881,7 +881,7 @@ namespace B84d {
 				1, 0, 0, 0, 0, 0,
 			};
 
-			return MASK_MAKE(2, p, a);
+			return MASK_MAKE(3, p, a);
 		}
 
 		static Mask Make3D_BFF() {
@@ -903,7 +903,7 @@ namespace B84d {
 				1, 1, 1, 0, 1, 1, 1, 1, 1,
 			};
 
-			return MASK_MAKE(2, p, a);
+			return MASK_MAKE(3, p, a);
 		}
 
 		static Mask Make3D_BFB() {
@@ -915,7 +915,7 @@ namespace B84d {
 				1, 0, 0, 0, 0, 0,
 			};
 
-			return MASK_MAKE(2, p, a);
+			return MASK_MAKE(3, p, a);
 		}
 
 		static Mask Make3D_BBF() {
@@ -929,7 +929,7 @@ namespace B84d {
 				1, 0, 0, 0, 0, 0,
 			};
 
-			return MASK_MAKE(2, p, a);
+			return MASK_MAKE(3, p, a);
 		}
 
 		static Mask Make3D_BBB() {
@@ -941,7 +941,7 @@ namespace B84d {
 				0, 0, 0, 1, 0, 0,
 			};
 
-			return MASK_MAKE(2, p, a);
+			return MASK_MAKE(3, p, a);
 		}
 
 		size_t size() const {
@@ -1076,6 +1076,83 @@ namespace B84d {
 		}
 
 		void Start3D() {
+			assert(varN.dims.size() == 3);
+
+			Mask maskFFF = Mask::Make3D_FFF();
+			Mask maskFFB = Mask::Make3D_FFB();
+			Mask maskFBF = Mask::Make3D_FBF();
+			Mask maskFBB = Mask::Make3D_FBB();
+
+			Mask maskBFF = Mask::Make3D_BFF();
+			Mask maskBFB = Mask::Make3D_BFB();
+			Mask maskBBF = Mask::Make3D_BBF();
+			Mask maskBBB = Mask::Make3D_BBB();
+
+			/* Forward superpass */
+			for (int s = 2; s <= varN.dims[3]; s++) {
+				/* Forward pass */
+				for (int r = 2; r <= varN.dims[2]; r++) {
+					/* L->R */
+					for (int c = 2; c <= varN.dims[1]; c++) {
+						VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
+						varF[w] = maskFFF.LowestFAround(varF, w);
+					}
+
+					/* R->L */
+					for (int c = varN.dims[1] - 1; c >= 1; c--) {
+						VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
+						varF[w] = maskFFB.LowestFAround(varF, w);
+					}
+				}
+
+				/* Backward pass */
+				for (int r = varN.dims[2] - 1; r >= 1; r--) {
+					/* R->L */
+					for (int c = varN.dims[1] - 1; c >= 1; c--) {
+						VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
+						varF[w] = maskFBF.LowestFAround(varF, w);
+					}
+
+					/* L->R */
+					for (int c = 1; c <= varN.dims[1]; c++) {
+						VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
+						varF[w] = maskFBB.LowestFAround(varF, w);
+					}
+				}
+			}
+
+			/* Backward superpass */
+			for (int s = varN.dims[3] - 1; s >= 1; s--) {
+				/* 'Forward' pass */
+				for (int r = varN.dims[2] - 1; r >= 1; r--) {
+					/* R->L */
+					for (int c = varN.dims[1] - 1; c >= 1; c--) {
+						VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
+						varF[w] = maskBFF.LowestFAround(varF, w);
+					}
+
+					/* L->R */
+					for (int c = 2; c <= varN.dims[1]; c++) {
+						VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
+						varF[w] = maskBFB.LowestFAround(varF, w);
+					}
+				}
+
+				/* 'Backward' pass */
+				for (int r = 2; r <= varN.dims[2]; r++) {
+					/* L->R */
+					for (int c = 2; c <= varN.dims[1]; c++) {
+						VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
+						varF[w] = maskBBF.LowestFAround(varF, w);
+					}
+
+					/* R->L */
+					for (int c = varN.dims[1] - 1; c >= 1; c--) {
+						VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
+						varF[w] = maskBBB.LowestFAround(varF, w);
+					}
+				}
+			}
 		}
 	};
 
@@ -1085,6 +1162,12 @@ template<typename T>
 void PFELT2(const T &varF, const VecOb<int> &a) {
 	if (varF[a].undef) cout << " ," << "X X";
 	else               cout << " ," << varF[a].i[1] << " " << varF[a].i[2];
+}
+
+template<typename T>
+void PFELT3(const T &varF, const VecOb<int> &a) {
+	if (varF[a].undef) cout << " ," << "X X X";
+	else               cout << " ," << varF[a].i[1] << " " << varF[a].i[2] << " " << varF[a].i[2];
 }
 
 template<typename T>
@@ -1101,12 +1184,34 @@ void PF2(const T &varF) {
 	cout << endl;
 }
 
+template<typename T>
+void PF3(const T &varF) {
+	assert(varF.dims.dims.size() == 3);
+	for (int s = 1; s <= varF.dims[3]; s++) {
+		for (int r = 1; r <= varF.dims[2]; r++) {
+			cout << ";";
+			for (int c = 1; c <= varF.dims[1]; c++) {
+				VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
+				PFELT3(varF, w);
+			}
+			cout << endl;
+		}
+		cout << endl;
+	}
+	cout << "------";
+	cout << endl;
+}
+
 void PM2(const Maurer &m) {
 	PF2(m.varF);
 }
 
 void PD2(const B84d::DEuc &m) {
 	PF2(m.varF);
+}
+
+void PD3(const B84d::DEuc &m) {
+	PF3(m.varF);
 }
 
 void T1DStr() {
