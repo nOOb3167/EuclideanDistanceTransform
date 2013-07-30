@@ -1091,9 +1091,10 @@ namespace B84d {
 			/* Forward superpass */
 			for (int s = 2; s <= varN.dims[3]; s++) {
 				/* Forward pass */
-				for (int r = 2; r <= varN.dims[2]; r++) {
+				for (int r = 1; r <= varN.dims[2]; r++) {
 					/* L->R */
-					for (int c = 2; c <= varN.dims[1]; c++) {
+					/* The 14-Mask, requires r,c = [1,dimsN] */
+					for (int c = 1; c <= varN.dims[1]; c++) {
 						VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
 						varF[w] = maskFFF.LowestFAround(varF, w);
 					}
@@ -1124,9 +1125,10 @@ namespace B84d {
 			/* Backward superpass */
 			for (int s = varN.dims[3] - 1; s >= 1; s--) {
 				/* 'Forward' pass */
-				for (int r = varN.dims[2] - 1; r >= 1; r--) {
+				for (int r = varN.dims[2]; r >= 1; r--) {
 					/* R->L */
-					for (int c = varN.dims[1] - 1; c >= 1; c--) {
+					/* The 14-Mask, requires r,c = [dimsN, 1] */
+					for (int c = varN.dims[1]; c >= 1; c--) {
 						VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
 						varF[w] = maskBFF.LowestFAround(varF, w);
 					}
