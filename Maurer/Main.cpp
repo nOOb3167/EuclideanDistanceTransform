@@ -1167,7 +1167,7 @@ void PFELT2(const T &varF, const VecOb<int> &a) {
 template<typename T>
 void PFELT3(const T &varF, const VecOb<int> &a) {
 	if (varF[a].undef) cout << " ," << "X X X";
-	else               cout << " ," << varF[a].i[1] << " " << varF[a].i[2] << " " << varF[a].i[2];
+	else               cout << " ," << varF[a].i[1] << " " << varF[a].i[2] << " " << varF[a].i[3];
 }
 
 template<typename T>
