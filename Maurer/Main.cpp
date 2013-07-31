@@ -161,10 +161,14 @@ namespace OneD {
 			return *this;
 		}
 
+		const int & operator[](size_t a) const { return i[a]; }
+		int &       operator[](size_t a)       { return i[a]; }
+		size_t      size() const               { return i.size(); }
+
 		static VoxelRef DOf(const VoxelRef &vOther, int dToSet, int newI) {
 			VoxelRef w(vOther);
 
-			w.i[dToSet] = newI;
+			w[dToSet] = newI;
 
 			return w;
 		}
@@ -216,10 +220,10 @@ namespace OneD {
 
 			VecOb<int> w;
 
-			assert(a.i.size() == b.size());
+			assert(a.size() == b.size());
 
 			for (size_t i = 1; i < b.OnePast(); i++)
-				w.push_back(a.i[i] + b[i]);
+				w.push_back(a[i] + b[i]);
 
 			return VoxelRef::MakeFromVec(w);
 		}
@@ -227,7 +231,7 @@ namespace OneD {
 		static int Euc(const VoxelRef &a) {
 			int sum = 0;
 			for (size_t i = 1; i < a.i.OnePast(); i++)
-				sum += a.i[i] * a.i[i];
+				sum += a[i] * a[i];
 			return sum;
 		}
 
@@ -235,7 +239,7 @@ namespace OneD {
 			if (a.undef) return b;
 			if (b.undef) return a;
 
-			assert(a.i.size() == b.i.size());
+			assert(a.size() == b.size());
 
 			if (Euc(a) < Euc(b)) return a;
 			else                 return b;
@@ -661,24 +665,24 @@ public:
 
 	/* FIXME: Not Dist Squared */
 	int EucDist(const VoxelRef &a, const VoxelRef &b) const {
-		assert(a.i.size() == b.i.size());
+		assert(a.size() == b.size());
 		int sum = 0;
 		for (size_t i = 1; i < a.i.OnePast(); i++)
-			sum += (a.i[i] - b.i[i]) * (a.i[i] - b.i[i]);
+			sum += (a[i] - b[i]) * (a[i] - b[i]);
 		return sum;
 	}
 
 	int URdSq(const VoxelRef &u, const VoxelRef &Rd, int d) const {
-		assert(u.i.size() == Rd.i.size());
+		assert(u.size() == Rd.size());
 		int sum = 0;
 		for (size_t i = 1; i < u.i.OnePast() && i != d; i++)
-			sum += (u.i[i] - Rd.i[i]) * (u.i[i] - Rd.i[i]);
+			sum += (u[i] - Rd[i]) * (u[i] - Rd[i]);
 		return sum;
 	}
 
 	bool RemoveFT(const VoxelRef &u, const VoxelRef &v, const VoxelRef &w, const VoxelRef &Rd, int d) {
-		int a = v.i[d] - u.i[d];
-		int b = w.i[d] - v.i[d];
+		int a = v[d] - u[d];
+		int b = w[d] - v[d];
 		int c = a + b;
 		return (c * URdSq(v, Rd, d) - b * URdSq(u, Rd, d) - a * URdSq(w, Rd, d) - a * b * c) > 0;
 	}
@@ -1184,11 +1188,10 @@ namespace B84d {
 
 template<typename T>
 void PFELTN(const T &varF, const VecOb<int> &a) {
-	/* FIXME: Should add 'size()' to VoxelRef instead of doing 'i.size()' */
 	cout << ",";
-	for (size_t i = 1; i <= varF[a].i.size(); i++)
+	for (size_t i = 1; i <= varF[a].size(); i++)
 		if (varF[a].undef) cout << "X ";
-		else               cout << varF[a].i[i] << " ";
+		else               cout << varF[a][i] << " ";
 }
 
 template<>
