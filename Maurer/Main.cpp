@@ -228,6 +228,18 @@ namespace OneD {
 			return VoxelRef::MakeFromVec(w);
 		}
 
+		static VoxelRef Sub(const VoxelRef &a, const VoxelRef &b) {
+			VecOb<int> w;
+
+			assert(!a.undef && !b.undef);
+			assert(a.size() == b.size());
+
+			for (size_t i = 1; i < b.i.OnePast(); i++)
+				w.push_back(a[i] - b[i]);
+
+			return VoxelRef::MakeFromVec(w);
+		}
+
 		static int Euc(const VoxelRef &a) {
 			int sum = 0;
 			for (size_t i = 1; i < a.i.OnePast(); i++)
@@ -340,8 +352,6 @@ namespace OneD {
 		F(const VecOb<int> &dms) : NStore(dms, VoxelRef::MakeUndef()) {}
 	};
 
-	typedef NStore<int> ires_t;
-
 	namespace VecCount {
 
 		void ReinitLower(int d, VecOb<int> *vInOut) {
@@ -391,6 +401,20 @@ namespace OneD {
 		}
 
 	};
+
+	typedef NStore<int> ires_t;
+
+	OneD::ires_t GetResult(const F &varF) {
+		OneD::ires_t r(varF.dims.dims, 0);
+
+		VecOb<int> vc = OneD::VecCount::MakeInitial(varF.dims.dims);
+
+		do {
+			r[vc] = OneD::VoxelRef::Euc(VoxelRef::Sub(VoxelRef::MakeFromVec(vc), varF[vc]));
+		} while (!VecCount::Inc(varF.dims.dims, &vc));
+
+		return r;
+	}
 
 	int ChrInt(char c) {
 		switch (c) {
@@ -1258,6 +1282,7 @@ void T2DStr() {
 	Maurer *pm;
 	shared_ptr<Maurer> m((pm = Maurer::Make2DStr("; ,1 ,0 ,0 ; ,0 ,1 ,0 ; ,0 ,0 ,0")));
 	m->Start();
+	OneD::ires_t ires = OneD::GetResult(m->varF);
 }
 
 void TE2DStr() {
