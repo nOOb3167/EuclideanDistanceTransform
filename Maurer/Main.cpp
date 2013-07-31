@@ -1201,64 +1201,17 @@ void PFELTN<>(const OneD::ires_t &varF, const VecOb<int> &a) {
 }
 
 template<typename T>
-void PFELT2(const T &varF, const VecOb<int> &a) {
-	if (varF[a].undef) cout << " ," << "X X";
-	else               cout << " ," << varF[a].i[1] << " " << varF[a].i[2];
-}
-
-template<typename T>
-void PFELT3(const T &varF, const VecOb<int> &a) {
-	if (varF[a].undef) cout << " ," << "X X X";
-	else               cout << " ," << varF[a].i[1] << " " << varF[a].i[2] << " " << varF[a].i[3];
-}
-
-template<typename T>
-void PF2(const T &varF) {
-	assert(varF.dims.dims.size() == 2);
-	for (int r = 1; r <= varF.dims[2]; r++) {
-		cout << "; ";
-		for (int c = 1; c <= varF.dims[1]; c++) {
-			VecOb<int> w; w.push_back(c); w.push_back(r);
-			PFELT2(varF, w);
-		}
-		cout << endl;
-	}
-	cout << endl;
-}
-
-template<typename T>
-void PF3(const T &varF) {
-	assert(varF.dims.dims.size() == 3);
-	for (int s = 1; s <= varF.dims[3]; s++) {
-		for (int r = 1; r <= varF.dims[2]; r++) {
-			cout << ";";
-			for (int c = 1; c <= varF.dims[1]; c++) {
-				VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
-				PFELT3(varF, w);
-			}
-			cout << endl;
-		}
-		cout << endl;
-	}
-	cout << "------";
-	cout << endl;
-}
-
-template<typename T>
 void PFN(const T &varF) {
-	VecOb<int> vc = OneD::VecCount::MakeInitial(varF.dims.dims);
-	size_t cnt = 1;
+	VecOb<int> vc  = OneD::VecCount::MakeInitial(varF.dims.dims);
+	size_t     cnt = 1;
 
-	do {
+	for (;;) {
 		bool r;
 
 		cout << "; ";
 
 		for (int c = 1; c <= varF.dims[1]; c++) {
-
 			PFELTN(varF, vc);
-
-			/* May overflow if last column of last dimension, but overflowing otherwise is an internal error */
 			if (c == varF.dims[1]) r = !OneD::VecCount::Inc(varF.dims.dims, &vc);
 			else           Ensure((r = !OneD::VecCount::Inc(varF.dims.dims, &vc)));
 
@@ -1275,26 +1228,22 @@ void PFN(const T &varF) {
 				cout << endl;
 
 		cnt++;
-	} while(true);
+	}
 
 	cout << "------";
 	cout << endl;
 }
 
-void PM2(const Maurer &m) {
-	PF2(m.varF);
-}
-
-void PD2(const B84d::DEuc &m) {
-	PF2(m.varF);
-}
-
-void PD3(const B84d::DEuc &m) {
-	PF3(m.varF);
-}
-
-void PFN(const B84d::DEuc &m) {
+void PM(const Maurer &m) {
 	PFN(m.varF);
+}
+
+void PD(const B84d::DEuc &m) {
+	PFN(m.varF);
+}
+
+void PR(const OneD::ires_t &m) {
+	PFN(m);
 }
 
 void T1DStr() {
@@ -1316,7 +1265,7 @@ void TE2DStr() {
 	DEuc *pm;
 	shared_ptr<DEuc> m((pm = DEuc::Make2DStr("; ,1 ,0 ,0 ; ,0 ,1 ,0 ; ,0 ,0 ,0")));
 	m->Start2D();
-	OneD::ires_t res = B84d::GetResult(m->varF);
+	OneD::ires_t ires = B84d::GetResult(m->varF);
 }
 
 void TE3DStr() {
@@ -1327,9 +1276,7 @@ void TE3DStr() {
 		"; ,0 ,0 ,0 ; ,0 ,0 ,0 ; ,0 ,0 ,0"
 		"; ,0 ,0 ,0 ; ,0 ,0 ,0 ; ,0 ,0 ,0")));
 	m->Start3D();
-	OneD::ires_t res = B84d::GetResult(m->varF);
-	PFN(res);
-	PFN(pm->varF);
+	OneD::ires_t ires = B84d::GetResult(m->varF);
 }
 
 int main(int argc, char **argv) {
