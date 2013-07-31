@@ -10,6 +10,11 @@ using namespace std;
 
 class OverflowExc : public ::std::exception {};
 
+/* Assert may be a macro compiled to nothing with NDEBUG. A function call such as this will evaluate the expression. */
+void Ensure(bool a) {
+	assert(a);
+}
+
 /**
 = Dimension convention =
 dims[1] = x (cols)
@@ -78,6 +83,16 @@ public:
 			w.push_back(v);
 
 		return w;
+	}
+
+	static VecOb<int> MakeAccDims(const VecOb<int> &a) {
+		VecOb<int> accDims = VecOb<int>(a.size());
+
+		accDims[1] = 1;
+		for (size_t i = 2; i < accDims.OnePast(); i++)
+			accDims[i] = accDims[i - 1] * a[i - 1];
+
+		return accDims;
 	}
 
 	static VecOb<int> Add(const VecOb<int> &p, const VecOb<int> &r) {
@@ -232,14 +247,10 @@ namespace OneD {
 		VecOb<int> accDims;
 
 		N(const VecOb<int> &dms) :
-			dims(dms)
+			dims(dms),
+			accDims(VecOb<int>::MakeAccDims(dms))
 		{
 			assert(dms.size() >= 1);
-
-			accDims = VecOb<int>(dms.size());
-			accDims[1] = 1;
-			for (size_t i = 2; i < accDims.OnePast(); i++)
-				accDims[i] = accDims[i - 1] * dims[i - 1];
 		}
 
 		int & operator[](const size_t i) { return dims[i]; }
@@ -324,6 +335,8 @@ namespace OneD {
 	struct F : public NStore<VoxelRef> {
 		F(const VecOb<int> &dms) : NStore(dms, VoxelRef::MakeUndef()) {}
 	};
+
+	typedef NStore<int> ires_t;
 
 	namespace VecCount {
 
@@ -737,6 +750,18 @@ namespace B84d {
 
 	typedef NStore<VoxelRef> F;
 
+	OneD::ires_t GetResult(const F &varF) {
+		OneD::ires_t r(varF.dims.dims, 0);
+
+		VecOb<int> vc = OneD::VecCount::MakeInitial(varF.dims.dims);
+
+		do {
+			r[vc] = OneD::VoxelRef::Euc(varF[vc]);
+		} while (!VecCount::Inc(varF.dims.dims, &vc));
+
+		return r;
+	}
+
 	/* FIXME: (x,y) or (y,x) ? Borgefors84::Algorithm 1. uses (y,x)
 	Decided on use of (x,y) for consistency */
 	struct Mask {
@@ -1032,9 +1057,6 @@ namespace B84d {
 					return m;
 		}
 
-		void Start() {
-		}
-
 		void Start2D() {
 			assert(varN.dims.size() == 2);
 
@@ -1161,6 +1183,21 @@ namespace B84d {
 };
 
 template<typename T>
+void PFELTN(const T &varF, const VecOb<int> &a) {
+	/* FIXME: Should add 'size()' to VoxelRef instead of doing 'i.size()' */
+	cout << ",";
+	for (size_t i = 1; i <= varF[a].i.size(); i++)
+		if (varF[a].undef) cout << "X ";
+		else               cout << varF[a].i[i] << " ";
+}
+
+template<>
+void PFELTN<>(const OneD::ires_t &varF, const VecOb<int> &a) {
+	cout << ",";
+	cout << varF[a] << " ";
+}
+
+template<typename T>
 void PFELT2(const T &varF, const VecOb<int> &a) {
 	if (varF[a].undef) cout << " ," << "X X";
 	else               cout << " ," << varF[a].i[1] << " " << varF[a].i[2];
@@ -1176,7 +1213,7 @@ template<typename T>
 void PF2(const T &varF) {
 	assert(varF.dims.dims.size() == 2);
 	for (int r = 1; r <= varF.dims[2]; r++) {
-		cout << ";";
+		cout << "; ";
 		for (int c = 1; c <= varF.dims[1]; c++) {
 			VecOb<int> w; w.push_back(c); w.push_back(r);
 			PFELT2(varF, w);
@@ -1204,6 +1241,43 @@ void PF3(const T &varF) {
 	cout << endl;
 }
 
+template<typename T>
+void PFN(const T &varF) {
+	VecOb<int> vc = OneD::VecCount::MakeInitial(varF.dims.dims);
+	size_t cnt = 1;
+
+	do {
+		bool r;
+
+		cout << "; ";
+
+		for (int c = 1; c <= varF.dims[1]; c++) {
+
+			PFELTN(varF, vc);
+
+			/* May overflow if last column of last dimension, but overflowing otherwise is an internal error */
+			if (c == varF.dims[1]) r = !OneD::VecCount::Inc(varF.dims.dims, &vc);
+			else           Ensure((r = !OneD::VecCount::Inc(varF.dims.dims, &vc)));
+
+			cnt++;
+		}
+
+		cout << endl;
+
+		if (!r)
+			break;
+
+		for (size_t i = 2; i < varF.dims.accDims.OnePast(); i++)
+			if (cnt % varF.dims.accDims[i] == 0)
+				cout << endl;
+
+		cnt++;
+	} while(true);
+
+	cout << "------";
+	cout << endl;
+}
+
 void PM2(const Maurer &m) {
 	PF2(m.varF);
 }
@@ -1214,6 +1288,10 @@ void PD2(const B84d::DEuc &m) {
 
 void PD3(const B84d::DEuc &m) {
 	PF3(m.varF);
+}
+
+void PFN(const B84d::DEuc &m) {
+	PFN(m.varF);
 }
 
 void T1DStr() {
@@ -1235,6 +1313,7 @@ void TE2DStr() {
 	DEuc *pm;
 	shared_ptr<DEuc> m((pm = DEuc::Make2DStr("; ,1 ,0 ,0 ; ,0 ,1 ,0 ; ,0 ,0 ,0")));
 	m->Start2D();
+	OneD::ires_t res = B84d::GetResult(m->varF);
 }
 
 void TE3DStr() {
@@ -1245,6 +1324,9 @@ void TE3DStr() {
 		"; ,0 ,0 ,0 ; ,0 ,0 ,0 ; ,0 ,0 ,0"
 		"; ,0 ,0 ,0 ; ,0 ,0 ,0 ; ,0 ,0 ,0")));
 	m->Start3D();
+	OneD::ires_t res = B84d::GetResult(m->varF);
+	PFN(res);
+	PFN(pm->varF);
 }
 
 int main(int argc, char **argv) {
