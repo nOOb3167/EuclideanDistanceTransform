@@ -687,6 +687,23 @@ public:
 			return m;
 	}
 
+	static Maurer * Make3DUniformStr(const string &s) {
+		Parse::rows_t rows = Parse::GetRows(s);
+		Parse::CheckInnerSize(rows, 1);
+
+		Maurer *m = new Maurer(Parse::GetUniformDims3(rows));
+
+		for (int s = 1; s <= m->varN[3]; s++)
+			for (int r = 1; r <= m->varN[2]; r++)
+				for (int c = 1; c <= m->varN[1]; c++) {
+					VecOb<int> w; w.push_back(c); w.push_back(r); w.push_back(s);
+
+					m->varI[w] = rows[(m->varN[2] * (s-1)) + r][c][1];
+				}
+
+				return m;
+	}
+
 	/* FIXME: Not Dist Squared */
 	int EucDist(const VoxelRef &a, const VoxelRef &b) const {
 		assert(a.size() == b.size());
@@ -1213,7 +1230,7 @@ namespace B84d {
 template<typename T>
 void PFELTN(const T &varF, const VecOb<int> &a) {
 	cout << ",";
-	for (size_t i = 1; i <= varF[a].size(); i++)
+	for (size_t i = 1; i <= varF.dims.dims.size(); i++)
 		if (varF[a].undef) cout << "X ";
 		else               cout << varF[a][i] << " ";
 }
@@ -1285,6 +1302,16 @@ void T2DStr() {
 	OneD::ires_t ires = OneD::GetResult(m->varF);
 }
 
+void T3DStr() {
+	Maurer *pm;
+	shared_ptr<Maurer> m((pm = Maurer::Make3DUniformStr(
+		"; ,1 ,0 ,0 ; ,0 ,1 ,0 ; ,0 ,0 ,0"
+		"; ,0 ,0 ,0 ; ,0 ,0 ,0 ; ,0 ,0 ,0"
+		"; ,0 ,0 ,0 ; ,0 ,0 ,0 ; ,0 ,0 ,0")));
+	m->Start();
+	OneD::ires_t ires = OneD::GetResult(m->varF);
+}
+
 void TE2DStr() {
 	using namespace B84d;
 	DEuc *pm;
@@ -1307,6 +1334,7 @@ void TE3DStr() {
 int main(int argc, char **argv) {
 	//T1DStr();
 	T2DStr();
+	T3DStr();
 	TE2DStr();
 	TE3DStr();
 	return EXIT_SUCCESS;
