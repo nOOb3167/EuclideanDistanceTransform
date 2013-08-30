@@ -1,68 +1,8 @@
-class D:
-    TLINE = 0
-    TELT  = 1
-    
-    def __init__(self, s):
-        self.s = s
-        self.p = 0
-
-    def Eof(self):
-        return self.p >= len(self.s)
-        
-    def OptSkipWs(self):
-        while not self.Eof() and IsCharWs(self.PeekChar()):
-            self.p += 1
-            
-    def PeekChar(self):
-        assert not self.Eof()
-        return self.s[self.p]
-    
-    def GetChar(self):
-        assert not self.Eof()
-        c = self.s[self.p]
-        self.p += 1
-        return c
-    
-    def CToken(self):
-        gc = self.GetChar()
-        print('gcx',gc)
-        if gc == ';': return self.TLINE
-        if gc == ',': return self.TELT
-        assert False
-
-    def Unget(self):
-        assert self.p > 0
-        self.p -= 1
-        
-    def ExNum(self):
-        assert not self.Eof()
-        
-        tmpP = self.p
-        while not tmpP >= len(self.s) and IsCharNum(self.s[tmpP]):
-            tmpP += 1
-            
-        w = int(self.s[self.p : tmpP])
-        self.p = tmpP
-        return w
-        
-    def ExElt(self):
-        self.OptSkipWs()
-        w = self.ExNum()
-        self.OptSkipWs()
-        return w
-
 class E:
     TLINE = 0
     TELT  = 1
     TNUM  = 2
     TEOF  = 3
-
-    def __init__(self, s):
-        self.s = s
-        self.p = 0
-
-    def Token(self):
-        pass
 
 def sw(s):
     while len(s) and IsCharWs(s[0]):
@@ -127,68 +67,68 @@ def SkipToken(s):
     if IsEmpty(s): return s
     assert 0
 
-def PrintTokens(s):
+def GetTokens(s):
+    w = []
     while not IsEmpty(s):
-        t, ex = Token(s)
+        w.append(Token(s))
         s = SkipToken(s)
+    return w
+
+def PrintTokens(s):
+    for t, ex in GetTokens(s):
         print('Token', t, 'Extra', ex)
     print('End')
 
-print('\n')
-PrintTokens('; ,1, 1, 1 ; ,0 ,0 ,0')
-
-#print(IsNumber('   \n\n\t 123 a bcdef'))
-#print(SkipNumber('   \n\n\t 123 a bcdef'))
-
-def xstate(d):
-    print('|', d.s[:d.p], '| @ |', d.s[d.p:], '|')
-
-def IsCharWs(c):
-    return c == ' ' or c == '\t' or c == '\n'
-
-def IsCharNum(c):
-    return c in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-
-def CheckSizes1(vvLines):
-#    print(vvLines)
-#    for i in range(len(vvLines)):
-#            assert len(vvLines[i]) == 1
-    pass
-
-def ParseRow(d):
-    vLine = []
+def ParseElts(vL, tok):
+    w = []
     
-    d.OptSkipWs()
+    while len(tok):
+        t, ex = tok[0]
+
+        if t != E.TELT:
+            break
+        else:
+            tok = tok[1:]
+            # A ',' requires a following 'NUM'
+            assert len(tok)
+            t, ex = tok[0]
+            assert t == E.TNUM
+            w.append(ex)
+            tok = tok[1:]
     
-    while not d.Eof() and d.CToken() == D.TELT:
-        xstate(d)
-        arityoneElt = d.ExElt()
-        vLine.append(arityoneElt)
+    vL.append(w)
+    return tok
+
+def ParseRows(tok):
+    vL = []
+
+    while len(tok):
+        t, ex = tok[0]
         
-    if not d.Eof():
-        d.Unget()
-        
-    return vLine
+        if t != E.TLINE:
+            break
+        else:
+            tok = tok[1:]
+            tok = ParseElts(vL, tok)
+    
+    if len(tok):
+        assert 0 # Not all tokens consumed
 
-def ParseRows(d):
-    vvLines = []
-    
-    d.OptSkipWs()
-    
-    while not d.Eof() and d.CToken() == D.TLINE:
-        vvLines.append(ParseRow(d))
-    
-    if not d.Eof():
-        d.Unget()
-        
-    return vvLines
-    
+    return vL
+
+def CheckSizesRowmatch(vL):
+    assert len(vL)
+    for i in vL:
+        assert len(vL[0]) == len(i)
+
 def GetRows(s):
-    d = D(s)
-    vvLines = ParseRows(d)
-    assert d.Eof()
-    CheckSizes1(vvLines)
-    return vvLines
+    tok = GetTokens(s)
+    vL = ParseRows(tok)
+    CheckSizesRowmatch(vL)
+    return vL
 
-#v = GetRows('; ,1, 1, 1 ; 0, 0, 0')
-#print(v)
+print('\n')
+sss = '; ,1, 1, 1 ; ,0 ,0 ,0'
+PrintTokens(sss)
+print(GetRows(sss))
+
