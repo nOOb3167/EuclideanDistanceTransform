@@ -189,3 +189,49 @@ PrintTokens(sss)
 print(GetRows(sss))
 
 print(vLtoArray(GetRows(sss)))
+
+import bpy
+
+def makeMaterial(name, diffuse, specular, alpha):
+    mat = bpy.data.materials.new(name)
+    mat.diffuse_color = diffuse
+    mat.diffuse_shader = 'LAMBERT' 
+    mat.diffuse_intensity = 1.0 
+    mat.specular_color = specular
+    mat.specular_shader = 'COOKTORR'
+    mat.specular_intensity = 0.5
+    mat.alpha = alpha
+    mat.ambient = 1
+    return mat
+
+def setMaterial(ob, mat):
+    me = ob.data
+    me.materials.append(mat)
+
+# r = Object, r.data = datablock
+def AddCube(origin):
+    bpy.ops.mesh.primitive_cube_add(location=origin)
+    return bpy.context.active_object
+
+def AddCubeCol(origin, col):
+    ob = AddCube(origin)
+    me = ob.data
+    me.vertex_colors.new(name='Col')
+    cmap = me.vertex_colors['Col']
+    for i in cmap.data:
+        i.color = col
+        
+    return ob
+
+def SetViewportShadeTextured():
+    for scrn in bpy.data.screens:
+        if scrn.name == 'Default' or scrn.name == 'Scripting':
+            for area in scrn.areas:
+                if area.type == 'VIEW_3D':
+                    for space in area.spaces:
+                        if space.type == 'VIEW_3D':
+                            space.viewport_shade = 'TEXTURED'
+
+SetViewportShadeTextured()
+
+ob = AddCubeCol([0,0,0], [0.3, 0.3, 0.3])
