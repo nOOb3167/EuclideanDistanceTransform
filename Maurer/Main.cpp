@@ -6,6 +6,8 @@
 #include <memory>
 #include <iostream>
 
+#include <DataInc.h>
+
 using namespace std;
 
 class OverflowExc : public ::std::exception {};
@@ -13,6 +15,17 @@ class OverflowExc : public ::std::exception {};
 /* Assert may be a macro compiled to nothing with NDEBUG. A function call such as this will evaluate the expression. */
 void Ensure(bool a) {
 	assert(a);
+}
+
+size_t GetLong(const char *s) {
+	long w;
+	char *e;
+
+	errno = 0;
+	w = strtol(s, &e, 10);
+	assert(errno != ERANGE && e != s && *e == '\0');
+
+	return w;
 }
 
 /**
@@ -1271,7 +1284,7 @@ void PFN(const T &varF) {
 		cnt++;
 	}
 
-	cout << "------";
+	/* cout << "------"; */
 	cout << endl;
 }
 
@@ -1331,11 +1344,30 @@ void TE3DStr() {
 	OneD::ires_t ires = B84d::GetResult(m->varF);
 }
 
+OneD::ires_t T3DStrData(size_t d) {
+	assert(d < sizeof dataStrings / sizeof *dataStrings);
+
+	Maurer *pm;
+	shared_ptr<Maurer> m((pm = Maurer::Make3DUniformStr(
+		dataStrings[d])));
+	m->Start();
+	OneD::ires_t ires = OneD::GetResult(m->varF);
+	return ires;
+}
+
+void PRData(size_t d) {
+	PR(T3DStrData(d));
+}
+
 int main(int argc, char **argv) {
 	//T1DStr();
 	T2DStr();
 	T3DStr();
 	TE2DStr();
 	TE3DStr();
+
+	if (argc > 1)
+		PRData(GetLong(argv[1]));
+
 	return EXIT_SUCCESS;
 }
