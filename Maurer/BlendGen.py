@@ -59,19 +59,26 @@ def Token(s):
 
 def SkipToken(s):
     s = sw(s)
+    
+    if IsEmpty(s): return s
+    
     if IsTLine(s): return SkipCharAny(s)
     if IsTElt(s):  return SkipCharAny(s)
+
     tf, val = IsNumber(s)
     if tf: return SkipNumber(s)
 
-    if IsEmpty(s): return s
     assert 0
 
 def GetTokens(s):
     w = []
-    while not IsEmpty(s):
+    while True:
+        t, ex = Token(s)
         w.append(Token(s))
         s = SkipToken(s)
+        
+        if t == E.TEOF:
+            break
     return w
 
 def PrintTokens(s):
@@ -111,8 +118,9 @@ def ParseRows(tok):
             tok = tok[1:]
             tok = ParseElts(vL, tok)
     
-    if len(tok):
-        assert 0 # Not all tokens consumed
+    # Only EOF should be remaining. If > 1 not all tokens were consumed.
+    assert len(tok) == 1
+    assert tok[0][0] == E.TEOF and tok[0][1] == None
 
     return vL
 
@@ -127,8 +135,57 @@ def GetRows(s):
     CheckSizesRowmatch(vL)
     return vL
 
+def GetUniformDims3(vL):
+    assert len(vL)
+    colLen = len(vL[0])
+    rowsNeeded = colLen * colLen
+    
+    assert len(vL) == rowsNeeded
+    
+    return [colLen, colLen, colLen]
+
+def vLtoArray(vL):
+    dims = GetUniformDims3(vL)
+    assert dims[0] == dims[1] and dims[0] == dims[2]
+    f = MakeUniform3D(0, dims[0])
+    
+    for s in range(dims[2]):
+        for r in range(dims[1]):
+            for c in range(dims[0]):
+                f[s][r][c] = vL[(dims[1] * s) + r][c]
+    
+    return f
+
+######
+def Make3D(init, z, y, x):
+        r = []
+        for k in range(z):
+                r.append([])
+                for j in range(y):
+                        r[k].append([])
+                        for i in range(x):
+                                r[k][j].append(init)
+        return r
+
+def MakeUniform3D(init, n):
+        return Make3D(init, n, n, n)
+######
+
 print('\n')
-sss = '; ,1, 1, 1 ; ,0 ,0 ,0'
+#sss = '; ,1, 1, 1 ; ,0 ,0 ,0 ; ,0 ,0 ,0'
+sss = """
+; ,0 ,0 ,1 
+; ,0 ,0 ,1 
+; ,1 ,1 ,2 
+
+; ,0 ,0 ,1 
+; ,0 ,0 ,1 
+; ,1 ,1 ,2 
+
+; ,1 ,1 ,2 
+; ,1 ,1 ,2 
+; ,2 ,2 ,3"""
 PrintTokens(sss)
 print(GetRows(sss))
 
+print(vLtoArray(GetRows(sss)))
