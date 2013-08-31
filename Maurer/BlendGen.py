@@ -187,9 +187,9 @@ sss = """
 ; ,2 ,2 ,3"""
 PrintTokens(sss)
 print(GetRows(sss))
-
 print(vLtoArray(GetRows(sss)))
 
+import math
 import bpy
 
 def makeMaterial(name, diffuse, specular, alpha):
@@ -209,18 +209,22 @@ def setMaterial(ob, mat):
     me.materials.append(mat)
 
 # r = Object, r.data = datablock
-def AddCube(origin):
+def AddCubeSiz(origin, siz):
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.ops.mesh.primitive_cube_add(location=origin)
+    bpy.ops.transform.resize(value=siz)
     return bpy.context.active_object
 
-def AddCubeCol(origin, col):
-    ob = AddCube(origin)
+def AddCube(origin):
+    return AddCubeSiz(origin, [0.5, 0.5, 0.5])
+
+def AddCubeSizCol(origin, siz, col):
+    ob = AddCubeSiz(origin, siz)
     me = ob.data
     me.vertex_colors.new(name='Col')
     cmap = me.vertex_colors['Col']
     for i in cmap.data:
-        i.color = col
-        
+        i.color = col        
     return ob
 
 def SetViewportShadeTextured():
@@ -232,6 +236,38 @@ def SetViewportShadeTextured():
                         if space.type == 'VIEW_3D':
                             space.viewport_shade = 'TEXTURED'
 
+def NukeMeshObjs():
+    for obname in [item.name for item in bpy.data.objects if item.type == "MESH"]:
+        bpy.data.objects[obname].select = True
+        
+    bpy.ops.object.delete()
+    
+    for item in bpy.data.meshes:
+        bpy.data.meshes.remove(item)
+
+def GetRDims(f):
+    return [len(f), len(f[0]), len(f[0][0])]
+
+def GetRColorScalingFactor(f):
+    dims = GetRDims(f)
+    distMaxMax = dims[0] * dims[0] + dims[1] * dims[1] + dims[2] * dims[2]
+    return 1.0 / math.sqrt(distMaxMax)
+
+def MakeObjGrid(f):
+    dims = GetRDims(f)
+    csf = GetRColorScalingFactor(f)
+    for k in range(dims[2]):
+        for j in range(dims[1]):
+            for i in range(dims[0]):
+                v = f[i][j][k]
+                c = [v*csf, v*csf, v*csf]
+                AddCubeSizCol([i, j, k], [0.1, 0.5, 0.5], c)
+
+NukeMeshObjs()
+
 SetViewportShadeTextured()
 
-ob = AddCubeCol([0,0,0], [0.3, 0.3, 0.3])
+#ob = AddCubeCol([0,0,0], [0.3, 0.3, 0.3])
+
+aRows = vLtoArray(GetRows(sss))
+MakeObjGrid(aRows)
