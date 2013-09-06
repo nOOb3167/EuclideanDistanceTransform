@@ -1387,6 +1387,19 @@ void PRDataFile(const char *fname) {
 	PR(ires);
 }
 
+void PRDataFileBF(const char *fname) {
+	string s(AuxRead(fname));
+	string *eternal = new string(s);
+
+	using namespace B84d;
+	DEuc *pm;
+	shared_ptr<DEuc> m((pm = DEuc::Make3DUniformStr(eternal->c_str())));
+	m->Start3D();
+	OneD::ires_t ires = B84d::GetResult(m->varF);
+
+	PR(ires);
+}
+
 int main(int argc, char **argv) {
 	//T1DStr();
 	//T2DStr();
@@ -1398,6 +1411,9 @@ int main(int argc, char **argv) {
 		switch (GetLong(argv[1])) {
 		case 2:
 			PRDataFile("../Maurer/DataInc02.inc");
+			break;
+		case 102:
+			PRDataFileBF("../Maurer/DataInc02.inc");
 			break;
 		default:
 			PRData(GetLong(argv[1]));
