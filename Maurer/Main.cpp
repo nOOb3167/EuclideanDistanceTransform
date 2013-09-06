@@ -1,10 +1,13 @@
 #include <cstdlib>
 #include <cassert>
+#include <cstdio>
 #include <iterator>
 #include <vector>
 #include <exception>
 #include <memory>
 #include <iostream>
+#include <sstream>
+#include <fstream>
 
 #include <DataInc.h>
 
@@ -1359,15 +1362,47 @@ void PRData(size_t d) {
 	PR(T3DStrData(d));
 }
 
+string AuxRead(const char *fname) {
+	try {
+		ifstream in(fname, ios_base::binary);
+		in.exceptions(ios_base::badbit | ios_base::failbit | ios_base::eofbit);
+		stringstream sstr;
+		sstr << in.rdbuf();
+		return sstr.str();
+	} catch (exception &e) {
+		assert(0);
+		return string();
+	}
+}
+
+void PRDataFile(const char *fname) {
+	string s(AuxRead(fname));
+	string *eternal = new string(s);
+
+	Maurer *pm;
+	shared_ptr<Maurer> m((pm = Maurer::Make3DUniformStr(eternal->c_str())));
+	m->Start();
+	OneD::ires_t ires = OneD::GetResult(m->varF);
+
+	PR(ires);
+}
+
 int main(int argc, char **argv) {
 	//T1DStr();
-	T2DStr();
-	T3DStr();
-	TE2DStr();
-	TE3DStr();
+	//T2DStr();
+	//T3DStr();
+	//TE2DStr();
+	//TE3DStr();
 
-	if (argc > 1)
-		PRData(GetLong(argv[1]));
+	if (argc > 1) {
+		switch (GetLong(argv[1])) {
+		case 2:
+			PRDataFile("../Maurer/DataInc02.inc");
+			break;
+		default:
+			PRData(GetLong(argv[1]));
+		}
+	}
 
 	return EXIT_SUCCESS;
 }
