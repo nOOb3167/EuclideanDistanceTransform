@@ -29,5 +29,11 @@
     <None Include="DataInc02.inc">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="DataInc03.inc">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="DataInc04.inc">
+      <Filter>Header Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

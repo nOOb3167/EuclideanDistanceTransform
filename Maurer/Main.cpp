@@ -1415,6 +1415,21 @@ int main(int argc, char **argv) {
 		case 102:
 			PRDataFileBF("../Maurer/DataInc02.inc");
 			break;
+
+		case 3:
+			PRDataFile("../Maurer/DataInc03.inc");
+			break;
+		case 103:
+			PRDataFileBF("../Maurer/DataInc03.inc");
+			break;
+
+		case 4:
+			PRDataFile("../Maurer/DataInc04.inc");
+			break;
+		case 104:
+			PRDataFileBF("../Maurer/DataInc04.inc");
+			break;
+
 		default:
 			PRData(GetLong(argv[1]));
 		}
